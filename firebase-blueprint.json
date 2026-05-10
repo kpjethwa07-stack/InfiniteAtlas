@@ -1,0 +1,143 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "language": { "type": "string", "description": "Preferred language" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "createdAt"]
+    },
+    "Trip": {
+      "title": "Trip",
+      "description": "A travel itinerary",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "coverURL": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "status": { "type": "string", "enum": ["planning", "ongoing", "completed", "cancelled"] },
+        "budgetLimit": { "type": "number" },
+        "categoryBudgets": { 
+          "type": "object", 
+          "additionalProperties": { "type": "number" },
+          "description": "Budget limits per category (e.g., transport: 500)"
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isPublic": { "type": "boolean", "description": "Whether the trip is shareable publicly" },
+        "smartAssistant": {
+          "type": "object",
+          "properties": {
+            "airlines": { "type": "array", "items": { "type": "string" } },
+            "taxiApps": { "type": "array", "items": { "type": "string" } },
+            "localTips": { "type": "string" }
+          }
+        }
+      },
+      "required": ["title", "ownerId", "startDate", "endDate", "createdAt"]
+    },
+    "Stop": {
+      "title": "Stop",
+      "description": "A city or location in a trip",
+      "type": "object",
+      "properties": {
+        "cityName": { "type": "string" },
+        "locationType": { "type": "string" },
+        "arrivalDate": { "type": "string", "format": "date-time" },
+        "departureDate": { "type": "string", "format": "date-time" },
+        "order": { "type": "integer" },
+        "note": { "type": "string" }
+      },
+      "required": ["cityName", "arrivalDate", "departureDate", "order"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "An activity planned for a stop",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "cost": { "type": "number" },
+        "type": { "type": "string", "enum": ["sightseeing", "food", "transport", "stay", "activity", "other"] },
+        "startTime": { "type": "string", "format": "date-time" },
+        "duration": { "type": "string" },
+        "status": { "type": "string", "enum": ["planned", "booked", "completed"] }
+      },
+      "required": ["title", "cost", "type"]
+    },
+    "PackingItem": {
+      "title": "Packing Item",
+      "description": "Item to pack for a trip",
+      "type": "object",
+      "properties": {
+        "item": { "type": "string" },
+        "category": { "type": "string" },
+        "isPacked": { "type": "boolean" }
+      },
+      "required": ["item", "isPacked"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Trip or day-specific note",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "dayIndex": { "type": "integer", "description": "Optional day relative to trip start" }
+      },
+      "required": ["content", "createdAt"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "A financial transaction during the trip",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string", "enum": ["flights", "accommodation", "food", "transport", "entertainment", "shopping", "other"] },
+        "date": { "type": "string", "format": "date-time" },
+        "note": { "type": "string" }
+      },
+      "required": ["title", "amount", "category", "date"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    },
+    "trips": {
+      "schema": "Trip",
+      "description": "Top-level collection of travel itineraries"
+    },
+    "trips/{tripId}/stops": {
+      "schema": "Stop",
+      "description": "Sub-collection of locations within a trip"
+    },
+    "trips/{tripId}/stops/{stopId}/activities": {
+      "schema": "Activity",
+      "description": "Sub-collection of activities for a specific stop"
+    },
+    "trips/{tripId}/packingItems": {
+      "schema": "PackingItem",
+      "description": "Sub-collection of items to pack"
+    },
+    "trips/{tripId}/notes": {
+      "schema": "Note",
+      "description": "Sub-collection of notes for the trip"
+    },
+    "trips/{tripId}/expenses": {
+      "schema": "Expense",
+      "description": "Sub-collection of actual expenses logged"
+    }
+  }
+}

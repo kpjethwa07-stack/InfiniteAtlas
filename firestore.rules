@@ -1,0 +1,179 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      // Create requirements: email, createdAt
+      // Optional: displayName, photoURL, language, updatedAt
+      return data.keys().hasAll(['email', 'createdAt']) &&
+             data.email is string && data.email.size() <= 256 &&
+             data.createdAt is timestamp &&
+             (data.get('displayName', null) == null || (data.displayName is string && data.displayName.size() <= 128)) &&
+             (data.get('photoURL', null) == null || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
+             (data.get('language', null) == null || (data.language is string && data.language.size() <= 10)) &&
+             (data.get('updatedAt', null) == null || data.updatedAt is timestamp);
+    }
+
+    function isValidTrip(data) {
+      return data.keys().hasAll(['title', 'ownerId', 'startDate', 'endDate', 'createdAt', 'status']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
+             data.ownerId is string && data.ownerId.size() <= 128 &&
+             data.startDate is timestamp &&
+             data.endDate is timestamp &&
+             data.createdAt is timestamp &&
+             data.status in ['planning', 'ongoing', 'completed', 'cancelled'] &&
+             (data.get('description', null) == null || (data.description is string && data.description.size() <= 10000)) &&
+             (data.get('coverURL', null) == null || (data.coverURL is string && data.coverURL.size() <= 2048)) &&
+             (data.get('isPublic', null) == null || data.isPublic is bool) &&
+             (data.get('budgetLimit', null) == null || (data.budgetLimit is number && data.budgetLimit >= 0)) &&
+             (data.get('categoryBudgets', null) == null || data.categoryBudgets is map) &&
+             (data.get('updatedAt', null) == null || data.updatedAt is timestamp) &&
+             (data.get('smartAssistant', null) == null || (
+               data.smartAssistant.get('airlines', []) is list &&
+               data.smartAssistant.get('taxiApps', []) is list &&
+               data.smartAssistant.get('localTips', '') is string
+             ));
+    }
+
+    function isValidStop(data) {
+      return data.keys().hasAll(['cityName', 'order', 'arrivalDate', 'departureDate']) &&
+             data.cityName is string && data.cityName.size() > 0 && data.cityName.size() <= 256 &&
+             data.arrivalDate is timestamp &&
+             data.departureDate is timestamp &&
+             data.order is int && data.order >= 0 &&
+             (data.get('note', '') is string && data.get('note', '').size() <= 10000);
+    }
+
+    function isValidActivity(data) {
+      return data.keys().hasAll(['title', 'cost', 'type']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
+             data.cost is number && data.cost >= 0 &&
+             // Relaxed type check as smart engine might use slightly different categories or user might add more
+             data.type is string &&
+             (data.get('description', '') is string && data.get('description', '').size() <= 10000) &&
+             (data.get('startTime', null) == null || data.get('startTime', null) is timestamp) &&
+             (data.get('duration', '') is string && data.get('duration', '').size() <= 512) &&
+             (data.get('status', '') is string && data.get('status', '').size() <= 256);
+    }
+
+    function isValidPackingItem(data) {
+      return data.keys().hasAll(['item', 'isPacked']) &&
+             data.item is string && data.item.size() > 0 && data.item.size() <= 512 &&
+             data.isPacked is bool &&
+             (data.get('category', '') is string && data.get('category', '').size() <= 256);
+    }
+
+    function isValidNote(data) {
+      return data.keys().hasAll(['content', 'createdAt']) &&
+             data.content is string && data.content.size() > 0 && data.content.size() <= 20000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasAll(['title', 'amount', 'category', 'date']) &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 256 &&
+             data.amount is number && data.amount >= 0 &&
+             data.category in ['flights', 'accommodation', 'food', 'transport', 'entertainment', 'shopping', 'other'] &&
+             data.date is timestamp &&
+             (data.get('note', '') is string && data.get('note', '').size() <= 10000);
+    }
+
+    // --- Collections ---
+
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && 
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().email == existing().email &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'language', 'updatedAt', 'isAdmin']);
+    }
+
+    match /trips/{tripId} {
+      allow list: if isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.isPublic == true || isAdmin());
+      allow get: if isSignedIn() && (existing().ownerId == request.auth.uid || existing().isPublic == true || isAdmin());
+      
+      allow create: if isSignedIn() && isValidTrip(incoming()) && incoming().createdAt == request.time && incoming().ownerId == request.auth.uid;
+      
+      allow update: if (isOwner(existing().ownerId) || isAdmin()) && isValidTrip(incoming()) &&
+                    incoming().createdAt == existing().createdAt &&
+                    incoming().ownerId == existing().ownerId;
+      
+      allow delete: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+
+      // Helper to check trip owner for sub-collections
+      function isTripOwner() {
+        return isOwner(get(/databases/$(database)/documents/trips/$(tripId)).data.ownerId);
+      }
+      
+      function canReadTrip() {
+        let trip = get(/databases/$(database)/documents/trips/$(tripId)).data;
+        return isSignedIn() && (trip.ownerId == request.auth.uid || trip.isPublic == true);
+      }
+
+      // Sub-collections
+      match /stops/{stopId} {
+        allow read: if canReadTrip();
+        allow create, update: if isTripOwner() && isValidStop(incoming());
+        allow delete: if isTripOwner();
+
+        match /activities/{activityId} {
+          allow read: if canReadTrip();
+          allow create, update: if isTripOwner() && isValidActivity(incoming());
+          allow delete: if isTripOwner();
+        }
+      }
+
+      match /packingItems/{itemId} {
+        allow read: if canReadTrip();
+        allow create, update: if isTripOwner() && isValidPackingItem(incoming());
+        allow delete: if isTripOwner();
+      }
+
+      match /notes/{noteId} {
+        allow read: if canReadTrip();
+        allow create, update: if isTripOwner() && isValidNote(incoming());
+        allow delete: if isTripOwner();
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if canReadTrip();
+        allow create, update: if isTripOwner() && isValidExpense(incoming());
+        allow delete: if isTripOwner();
+      }
+    }
+  }
+}
