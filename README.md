@@ -25,7 +25,7 @@ Infinity Atlas is an **intelligent, AI-powered travel planner** that crafts pers
 ### Prerequisites
 - Node.js (v18+)
 - Firebase Project
-- Google Gemini API Key
+- API Key
 
 ### 1. Clone & Install
 ```bash
@@ -37,7 +37,7 @@ npm install
 ### 2. Environment Setup
 Create a `.env` file in the root directory and add your Gemini API key:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+API_KEY=your_api_key_here
 ```
 
 Your Firebase configuration is stored in `firebase-applet-config.json` and loaded automatically via `src/lib/firebase.ts`.
