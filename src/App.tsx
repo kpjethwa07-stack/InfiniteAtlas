@@ -78,14 +78,17 @@ function AnimatedRoutes() {
 // Remove PageTransition component as it's no longer needed with the above structure
 
 import { LanguageProvider } from './contexts/LanguageContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 export default function App() {
   return (
     <Router>
       <AuthProvider>
         <LanguageProvider>
-          <AnimatedRoutes />
-          <Toaster />
+          <ThemeProvider>
+            <AnimatedRoutes />
+            <Toaster />
+          </ThemeProvider>
         </LanguageProvider>
       </AuthProvider>
     </Router>
