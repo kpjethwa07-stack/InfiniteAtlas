@@ -117,9 +117,9 @@ export default function TripList() {
             </Button>
           </div>
           <Link to="/trips/new">
-            <Button size="lg" className="rounded-full gap-2 bg-black hover:scale-105 transition-transform active:scale-95">
-              <Sparkles className="w-5 h-5 text-orange-400" />
-              Smart Plan
+            <Button size="lg" className="rounded-full gap-2 bg-black hover:scale-105 transition-transform active:scale-95 text-white font-bold h-11 px-6 shadow-md">
+              <Plus className="w-4 h-4" />
+              Create a Journey
             </Button>
           </Link>
         </div>

@@ -14,7 +14,7 @@ import { ScrollArea } from '../components/ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
-import { MapPin, Calendar, DollarSign, Package, FileText, Share2, Edit3, Trash2, ChevronLeft, LayoutGrid, List, Plus, CheckCircle2, Sparkles, Plane, Car, Info } from 'lucide-react';
+import { MapPin, Calendar, DollarSign, Package, FileText, Share2, Edit3, Trash2, ChevronLeft, LayoutGrid, List, Plus, CheckCircle2, Sparkles, Plane, Car, Info, Compass } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
@@ -447,7 +447,7 @@ export default function ItineraryView() {
             <TabsTrigger value="itinerary" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Full Itinerary</TabsTrigger>
             {trip?.smartAssistant && (
               <TabsTrigger value="guide" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white flex gap-2">
-                <Sparkles className="w-4 h-4" />
+                <Compass className="w-4 h-4 text-orange-500" />
                 Travel Guide
               </TabsTrigger>
             )}

@@ -10,13 +10,14 @@ import { Label } from '../components/ui/label';
 import { Calendar } from '../components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, ArrowLeft, Send, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, ArrowLeft, Send } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { TripStatus, ActivityType } from '../types';
 import { generateSmartPlan } from '../services/smartPlanService';
-import { addDoc, collection, serverTimestamp, getDoc, doc, Timestamp } from 'firebase/firestore';
-import { DollarSign, Plane, Hotel, Utensils, Camera, Ticket, MoreHorizontal } from 'lucide-react';
+import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { Plane, Hotel, Utensils, Camera, Ticket, MoreHorizontal } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function CreateTrip() {
   const { user } = useAuth();
@@ -64,7 +65,7 @@ export default function CreateTrip() {
     }
 
     setLoading(true);
-    const loadingToastId = toast.loading(`Crafting your perfect itinerary for ${destination}...`);
+    const loadingToastId = toast.loading(`Drafting your custom itinerary for ${destination}...`);
     
     try {
       const duration = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) || 1;
@@ -96,7 +97,6 @@ export default function CreateTrip() {
       const docRef = await addDoc(collection(db, 'trips'), tripData);
       console.log('Main trip document created:', docRef.id);
       
-      // Add generated stops and activities
       for (const [index, stop] of smartPlan.stops.entries()) {
         const stopArrival = new Date(startDate);
         stopArrival.setDate(stopArrival.getDate() + stop.arrivalDateOffset);
@@ -124,7 +124,6 @@ export default function CreateTrip() {
         }
       }
 
-      // Add general advice as notes
       if (smartPlan.generalAdvice.airlines.length > 0 || smartPlan.generalAdvice.taxiApps.length > 0) {
         await addDoc(collection(db, 'trips', docRef.id, 'notes'), {
           content: `Recommended Airlines: ${smartPlan.generalAdvice.airlines.join(', ')}\nTaxi Apps: ${smartPlan.generalAdvice.taxiApps.join(', ')}`,
@@ -132,7 +131,7 @@ export default function CreateTrip() {
         });
       }
 
-      toast.success('Trip generated successfully!', { id: loadingToastId });
+      toast.success('Itinerary designed successfully!', { id: loadingToastId });
       navigate(`/trips/${docRef.id}`);
     } catch (error) {
       console.error('Failed to create trip:', error);
@@ -144,21 +143,26 @@ export default function CreateTrip() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto py-12 space-y-12">
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="max-w-3xl mx-auto py-12 space-y-12"
+    >
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
           <ArrowLeft className="w-6 h-6" />
         </Button>
-        <h1 className="text-4xl font-bold tracking-tight">Smart Planner</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Design a Journey</h1>
       </div>
 
-      <div className="space-y-8 bg-white p-12 rounded-[48px] shadow-sm border border-black/5">
+      <div className="space-y-8 bg-white/70 backdrop-blur-xl p-12 rounded-[48px] shadow-sm border border-black/5">
         <div className="space-y-2">
           <Label htmlFor="destination" className="text-xs uppercase tracking-widest font-bold text-black/40">Where are you going? *</Label>
           <Input 
             id="destination" 
             placeholder="e.g. Paris, France or Tokyo, Japan" 
-            className="text-2xl font-bold border-none px-0 focus-visible:ring-0 placeholder:text-black/10 h-auto py-2"
+            className="text-2xl font-bold border-none px-0 focus-visible:ring-0 placeholder:text-black/10 h-auto py-2 bg-transparent"
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
           />
@@ -169,7 +173,7 @@ export default function CreateTrip() {
           <Input 
             id="title" 
             placeholder="e.g. Dream Vacation 2026" 
-            className="text-xl font-medium border-none px-0 focus-visible:ring-0 placeholder:text-black/10 h-auto py-1"
+            className="text-xl font-medium border-none px-0 focus-visible:ring-0 placeholder:text-black/10 h-auto py-1 bg-transparent"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
@@ -210,11 +214,10 @@ export default function CreateTrip() {
               id="budget" 
               type="number"
               placeholder="0.00" 
-              className="pl-10 h-14 bg-[#F5F2ED] border-none rounded-2xl text-lg font-semibold focus-visible:ring-black"
+              className="pl-6 h-14 bg-[#F5F2ED] border-none rounded-2xl text-lg font-semibold focus-visible:ring-black"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
             />
-            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-black/40 text-lg font-bold"></span>
           </div>
         </div>
 
@@ -251,7 +254,7 @@ export default function CreateTrip() {
           <Textarea 
             id="description" 
             placeholder="Tell us more about your dream trip..." 
-            className="min-h-[120px] bg-[#F5F2ED] border-none rounded-3xl p-6 focus-visible:ring-black text-lg"
+            className="min-h-[120px] bg-[#F5F2ED] border-none rounded-3xl p-6 focus-visible:ring-black text-lg resize-none"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
@@ -260,23 +263,22 @@ export default function CreateTrip() {
         <div className="pt-8 flex flex-col gap-4">
           <Button 
             size="lg" 
-            className="w-full h-16 rounded-full bg-black text-white hover:bg-black/90 text-xl font-bold flex gap-4 transition-transform hover:scale-[1.02] active:scale-95"
+            className="w-full h-16 rounded-full bg-black text-white hover:bg-black/90 text-xl font-bold flex gap-4 justify-center items-center transition-transform hover:scale-[1.02] active:scale-95 shadow-md"
             onClick={handleCreate}
             disabled={loading}
           >
-            {loading ? 'Thinking...' : (
+            {loading ? 'Designing your trip...' : (
               <>
-                Generate Detailed Plan
-                <Sparkles className="w-6 h-6 animate-pulse" />
+                Create Itinerary
+                <Send className="w-5 h-5" />
               </>
             )}
           </Button>
-          <p className="text-center text-xs text-black/40 font-medium">
-            Our intelligent engine will craft a custom itinerary based on your destination and preferences. 
-            You can edit everything later.
+          <p className="text-center text-xs text-black/40 font-medium leading-relaxed max-w-md mx-auto">
+            We will gather a personalized schedule of hotels, daily activities, and travel recommendations matching your preferences. You can edit and customize everything once created!
           </p>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
