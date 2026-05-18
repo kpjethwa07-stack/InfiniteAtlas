@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Plane, User, LogOut, Compass, ShieldCheck, Menu, X, Heart } from 'lucide-react';
+import { Home, Plane, User, LogOut, Compass, ShieldCheck, Menu, X, Heart, Sparkles } from 'lucide-react';
 import { AnimatedLogo } from './AnimatedLogo';
 import { FloatingOrbs } from './FloatingOrbs';
 import { auth } from '../lib/firebase';
@@ -8,7 +8,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useTheme, ThemeType } from '../contexts/ThemeContext';
 import { motion } from 'motion/react';
+import { Tilt3D } from './Tilt3D';
 
 interface SidebarProps {
   user: any;
@@ -18,7 +20,78 @@ interface SidebarProps {
   setMobileOpen: (open: boolean) => void;
 }
 
+const HolographicThemeSelector = () => {
+  const { theme, setTheme } = useTheme();
+
+  const presets: { id: ThemeType; label: string; bg: string; border: string; glow: string; text: string }[] = [
+    { 
+      id: 'midnight', 
+      label: 'Midnight', 
+      bg: 'bg-cyan-500/10 hover:bg-cyan-500/15', 
+      border: 'border-cyan-500/25', 
+      glow: 'shadow-cyan-500/10',
+      text: 'text-cyan-400'
+    },
+    { 
+      id: 'sunset', 
+      label: 'Sunset', 
+      bg: 'bg-rose-500/10 hover:bg-rose-500/15', 
+      border: 'border-rose-500/25', 
+      glow: 'shadow-rose-500/10',
+      text: 'text-rose-400'
+    },
+    { 
+      id: 'aurora', 
+      label: 'Aurora', 
+      bg: 'bg-emerald-500/10 hover:bg-emerald-500/15', 
+      border: 'border-emerald-500/25', 
+      glow: 'shadow-emerald-500/10',
+      text: 'text-emerald-400'
+    }
+  ];
+
+  return (
+    <Tilt3D className="px-1" intensity={8} glare={false}>
+      <div className="p-4 bg-gradient-to-br from-white/[0.04] to-white/[0.01] rounded-2xl border border-white/[0.06] backdrop-blur-md space-y-3" style={{ transform: 'translateZ(10px)', transformStyle: 'preserve-3d' }}>
+        <div className="flex items-center gap-1.5 opacity-60">
+          <Sparkles className="w-3 h-3 text-orange-400" />
+          <span className="text-[9px] font-black uppercase tracking-wider text-white">Dimension Theme</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          {presets.map((preset) => {
+            const isSelected = theme === preset.id;
+            return (
+              <motion.button
+                key={preset.id}
+                onClick={() => setTheme(preset.id)}
+                whileHover={{ scale: 1.02, translateZ: 15 }}
+                whileTap={{ scale: 0.98 }}
+                className={cn(
+                  "w-full h-8 rounded-xl text-[10px] font-black tracking-wider transition-all duration-300 border flex items-center justify-between px-3 cursor-pointer",
+                  isSelected 
+                    ? cn(preset.bg, preset.border, "shadow-md", preset.glow, preset.text)
+                    : "bg-transparent border-transparent text-white/30 hover:text-white/60 hover:bg-white/[0.02]"
+                )}
+                style={{ transformStyle: 'preserve-3d' }}
+              >
+                <span>{preset.label}</span>
+                {isSelected && <div className={cn("w-1.5 h-1.5 rounded-full", 
+                  theme === 'midnight' && "bg-cyan-400" || 
+                  theme === 'sunset' && "bg-rose-400" || 
+                  theme === 'aurora' && "bg-emerald-400"
+                )} />}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+    </Tilt3D>
+  );
+};
+
 const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarProps) => {
+  const { theme } = useTheme();
+
   const navItems = [
     { icon: Home, label: t('dashboard'), path: '/' },
     { icon: Plane, label: t('myTrips'), path: '/trips' },
@@ -49,9 +122,14 @@ const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarPr
       </div>
 
       {/* Greeting card */}
-      <div className="mx-4 mb-5 px-5 py-4 rounded-2xl bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] backdrop-blur-sm">
-        <p className="text-xs font-semibold text-white/70">
-          {getTimeEmoji()} Welcome back, {user?.displayName?.split(' ')[0] || 'Traveler'}
+      <div className={cn(
+        "mx-4 mb-5 px-5 py-4 rounded-2xl border backdrop-blur-sm transition-all duration-500",
+        theme === 'midnight' && "bg-cyan-500/[0.02] border-cyan-500/10 text-cyan-400",
+        theme === 'sunset' && "bg-rose-500/[0.02] border-rose-500/10 text-rose-400",
+        theme === 'aurora' && "bg-emerald-500/[0.02] border-emerald-500/10 text-emerald-400"
+      )}>
+        <p className="text-xs font-semibold">
+          {getTimeEmoji()} Welcome, {user?.displayName?.split(' ')[0] || 'Traveler'}
         </p>
         <p className="text-[10px] mt-1 text-white/30 italic">
           Make today an adventure
@@ -74,8 +152,12 @@ const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarPr
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-300",
                   isActive
-                    ? "bg-gradient-to-r from-orange-500/90 to-amber-500/80 text-white shadow-lg shadow-orange-500/15"
-                    : "text-white/40 hover:bg-white/[0.04] hover:text-white/80"
+                    ? (
+                        theme === 'midnight' && "bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-500/5" ||
+                        theme === 'sunset' && "bg-rose-500/10 border border-rose-500/20 text-rose-400 shadow-lg shadow-rose-500/5" ||
+                        theme === 'aurora' && "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 shadow-lg shadow-emerald-500/5"
+                      )
+                    : "text-white/40 hover:bg-white/[0.02] hover:text-white/80"
                 )}
               >
                 <item.icon className="w-4 h-4" />
@@ -86,8 +168,10 @@ const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarPr
         })}
       </nav>
 
-      <div className="p-4 space-y-3 mt-auto border-t border-white/[0.04] bg-[#0B0E15]">
-        <div className="flex items-center gap-3 px-3 py-2">
+      <div className="p-4 space-y-4 mt-auto border-t border-white/[0.04] bg-[#090C13]">
+        <HolographicThemeSelector />
+        
+        <div className="flex items-center gap-3 px-3 pt-1">
           <div className="relative">
             <img
               src={user?.photoURL || 'https://api.dicebear.com/7.x/avataaars/svg?seed=travel'}
@@ -95,7 +179,11 @@ const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarPr
               className="w-10 h-10 rounded-xl border border-white/10 object-cover"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-[#0B0E15]" />
+            <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#090C13] transition-colors duration-500", 
+              theme === 'midnight' && "bg-cyan-400" ||
+              theme === 'sunset' && "bg-rose-400" ||
+              theme === 'aurora' && "bg-emerald-400"
+            )} />
           </div>
           <div className="flex flex-col min-w-0">
             <span className="text-sm font-semibold text-white truncate">
@@ -114,7 +202,7 @@ const SidebarContent = ({ user, isAdmin, pathname, t, setMobileOpen }: SidebarPr
           <LogOut className="w-4 h-4" />
           {t('signOut')}
         </Button>
-        <p className="text-center text-[9px] text-white/15 flex items-center justify-center gap-1 pt-1">
+        <p className="text-center text-[9px] text-white/15 flex items-center justify-center gap-1">
           Made with <Heart className="w-2.5 h-2.5 fill-red-400 text-red-400" /> by Infinity Atlas
         </p>
       </div>
@@ -126,10 +214,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const { user, isAdmin } = useAuth();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#080B12] text-white">
+    <div className={cn(
+      "flex h-screen overflow-hidden text-white transition-colors duration-700",
+      theme === 'midnight' && "bg-[#080B12]",
+      theme === 'sunset' && "bg-[#0F0815]",
+      theme === 'aurora' && "bg-[#060D11]"
+    )}>
       {/* Ambient floating orbs behind everything */}
       <FloatingOrbs />
 

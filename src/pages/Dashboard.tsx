@@ -5,7 +5,7 @@ import { collection, query, where, orderBy, limit, deleteDoc, doc, getDocs } fro
 import { useCollection } from 'react-firebase-hooks/firestore';
 import { Button } from '../components/ui/button';
 import { Link } from 'react-router-dom';
-import { Plus, ArrowRight, Calendar, MapPin, DollarSign, Globe, Plane, Trash2 } from 'lucide-react';
+import { Plus, ArrowRight, Calendar, MapPin, DollarSign, Globe, Plane, Trash2, Sparkles } from 'lucide-react';
 import { Skeleton } from '../components/ui/skeleton';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 import { Tilt3D } from '../components/Tilt3D';
+import { useTheme } from '../contexts/ThemeContext';
 
 import { motion } from 'motion/react';
 
@@ -36,6 +37,7 @@ const itemVariants = {
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { theme } = useTheme();
   const tripsRef = collection(db, 'trips');
   const recentTripsQuery = query(
     tripsRef,
@@ -101,6 +103,24 @@ export default function Dashboard() {
     return 'Good evening';
   };
 
+  const getAccentColorClass = () => {
+    if (theme === 'midnight') return 'text-cyan-400';
+    if (theme === 'sunset') return 'text-rose-400';
+    return 'text-emerald-400';
+  };
+
+  const getGradientClass = () => {
+    if (theme === 'midnight') return 'from-cyan-500 to-blue-500';
+    if (theme === 'sunset') return 'from-rose-500 to-pink-500';
+    return 'from-emerald-500 to-teal-500';
+  };
+
+  const getCardBgClass = () => {
+    if (theme === 'midnight') return 'from-cyan-500/10 to-blue-600/5 border-cyan-500/15 shadow-cyan-500/5';
+    if (theme === 'sunset') return 'from-rose-500/10 to-pink-600/5 border-rose-500/15 shadow-rose-500/5';
+    return 'from-emerald-500/10 to-teal-600/5 border-emerald-500/15 shadow-emerald-500/5';
+  };
+
   return (
     <motion.div
       className="space-y-12"
@@ -115,10 +135,10 @@ export default function Dashboard() {
           <p className="mt-2 text-lg italic font-medium text-white/30">Where will your dreams take you next?</p>
         </div>
         <Link to="/trips/new">
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <motion.div whileHover={{ scale: 1.05, rotateY: 10 }} whileTap={{ scale: 0.95 }}>
             <Button
               size="lg"
-              className="rounded-full gap-2 px-8 h-12 text-sm font-bold shadow-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white border-none hover:shadow-orange-500/20 hover:shadow-xl transition-shadow"
+              className={`rounded-full gap-2 px-8 h-12 text-sm font-bold shadow-lg bg-gradient-to-r ${getGradientClass()} text-white border-none hover:shadow-xl transition-all duration-300`}
             >
               <Plus className="w-5 h-5" />
               Create a Journey
@@ -130,18 +150,18 @@ export default function Dashboard() {
       {/* 3D Stats Cards */}
       <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={itemVariants} style={{ perspective: 1200 }}>
         {/* Next Destination */}
-        <Tilt3D className="rounded-[28px]" intensity={12}>
-          <div className="rounded-[28px] p-8 bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] backdrop-blur-xl h-full">
-            <div className="space-y-4" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
-              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-orange-400" />
+        <Tilt3D className="rounded-[28px]" intensity={15}>
+          <div className={`rounded-[28px] p-8 bg-gradient-to-br ${getCardBgClass()} backdrop-blur-xl border h-full transition-all duration-500`}>
+            <div className="space-y-4" style={{ transform: 'translateZ(40px)', transformStyle: 'preserve-3d' }}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/[0.06] ${getAccentColorClass()}`}>
+                <MapPin className="w-5 h-5" />
               </div>
               <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Next Destination</span>
               <h3 className="text-2xl font-black text-white truncate">
                 {upcomingTrip ? upcomingTrip.title : 'Ready for discovery'}
               </h3>
               <div className="flex items-center gap-2 text-xs font-bold text-white/40">
-                <Calendar className="w-4 h-4 text-orange-400/60" />
+                <Calendar className={`w-4 h-4 ${getAccentColorClass()}/60`} />
                 <span>{daysUntilUpcoming !== null ? `Begins in ${daysUntilUpcoming} days` : 'No upcoming journeys'}</span>
               </div>
             </div>
@@ -149,18 +169,16 @@ export default function Dashboard() {
         </Tilt3D>
 
         {/* Total Funds */}
-        <Tilt3D className="rounded-[28px]" intensity={12}>
-          <div className="rounded-[28px] p-8 bg-gradient-to-br from-orange-500/20 to-amber-600/10 border border-orange-500/15 backdrop-blur-xl h-full relative overflow-hidden">
-            {/* Decorative glow */}
-            <div className="absolute -top-16 -right-16 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl" />
-            <div className="space-y-4 relative z-10" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
-              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-emerald-400" />
+        <Tilt3D className="rounded-[28px]" intensity={15}>
+          <div className={`rounded-[28px] p-8 bg-gradient-to-br ${getCardBgClass()} backdrop-blur-xl border h-full relative overflow-hidden transition-all duration-500`}>
+            <div className="space-y-4 relative z-10" style={{ transform: 'translateZ(40px)', transformStyle: 'preserve-3d' }}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/[0.06] ${getAccentColorClass()}`}>
+                <DollarSign className="w-5 h-5" />
               </div>
               <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Allocated Funds</span>
               <h3 className="text-3xl font-black tracking-tight text-white">${totalBudget.toLocaleString()}</h3>
               <div className="flex items-center gap-2 text-xs font-bold text-white/40">
-                <Globe className="w-4 h-4 text-emerald-400/60" />
+                <Globe className={`w-4 h-4 ${getAccentColorClass()}/60`} />
                 <span>Set aside across {allTrips?.length || 0} journeys</span>
               </div>
             </div>
@@ -168,16 +186,16 @@ export default function Dashboard() {
         </Tilt3D>
 
         {/* Exploration Status */}
-        <Tilt3D className="rounded-[28px]" intensity={12}>
-          <div className="rounded-[28px] p-8 bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] backdrop-blur-xl h-full">
-            <div className="space-y-4" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
-                <Globe className="w-5 h-5 text-indigo-400" />
+        <Tilt3D className="rounded-[28px]" intensity={15}>
+          <div className={`rounded-[28px] p-8 bg-gradient-to-br ${getCardBgClass()} backdrop-blur-xl border h-full transition-all duration-500`}>
+            <div className="space-y-4" style={{ transform: 'translateZ(40px)', transformStyle: 'preserve-3d' }}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-white/[0.04] border border-white/[0.06] ${getAccentColorClass()}`}>
+                <Globe className="w-5 h-5" />
               </div>
               <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Your Adventures</span>
               <h3 className="text-2xl font-black text-white">{allTrips?.length || 0} {allTrips?.length === 1 ? 'Journey' : 'Journeys'}</h3>
               <div className="flex items-center gap-2 text-xs font-bold text-white/40">
-                <Plane className="w-4 h-4 text-indigo-400/60" />
+                <Plane className={`w-4 h-4 ${getAccentColorClass()}/60`} />
                 <span>Active Wayfarer</span>
               </div>
             </div>
@@ -188,10 +206,10 @@ export default function Dashboard() {
       {/* Travel Quote */}
       <motion.div variants={itemVariants}>
         <motion.div
-          whileHover={{ scale: 1.008 }}
+          whileHover={{ scale: 1.01, translateZ: 10 }}
           className="flex items-center gap-5 py-5 px-8 bg-white/[0.02] backdrop-blur-md rounded-2xl border border-white/[0.04] cursor-default"
         >
-          <span className="text-3xl font-serif text-orange-400/80">"</span>
+          <span className={`text-3xl font-serif ${getAccentColorClass()}/80`}>"</span>
           <p className="text-sm italic font-medium text-white/40 leading-relaxed">
             {[
               'The world is a book, and those who do not travel read only one page. — St. Augustine',
@@ -224,11 +242,11 @@ export default function Dashboard() {
             recentTrips.map((trip: any, idx: number) => (
               <motion.div
                 key={trip.id}
-                initial={{ opacity: 0, y: 40, rotateX: 8 }}
+                initial={{ opacity: 0, y: 40, rotateX: 10 }}
                 animate={{ opacity: 1, y: 0, rotateX: 0 }}
                 transition={{ delay: idx * 0.15, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               >
-                <Tilt3D className="rounded-[32px]" intensity={8} glare>
+                <Tilt3D className="rounded-[32px]" intensity={12} glare>
                   <div className="group relative h-80 rounded-[32px] overflow-hidden border border-white/[0.06]">
                     <Link to={`/trips/${trip.id}`} className="absolute inset-0 z-10">
                       <img
@@ -239,14 +257,14 @@ export default function Dashboard() {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-                      <div className="absolute bottom-0 p-7 text-white w-full" style={{ transform: 'translateZ(20px)', transformStyle: 'preserve-3d' }}>
+                      <div className="absolute bottom-0 p-7 text-white w-full" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
                         <span className="text-[10px] uppercase tracking-widest font-bold text-white/40 mb-2 block">
                           {format(trip.startDate.toDate(), 'MMM yyyy')}
                         </span>
-                        <h3 className="text-xl font-bold leading-tight">{trip.title}</h3>
+                        <h3 className="text-xl font-bold leading-tight group-hover:text-orange-400 transition-colors">{trip.title}</h3>
                         <div className="flex items-center gap-4 mt-3 text-xs text-white/50 font-medium">
                           <div className="flex items-center gap-1.5">
-                            <MapPin className="w-3 h-3 text-orange-400" />
+                            <MapPin className={`w-3 h-3 ${getAccentColorClass()}`} />
                             <span>View Itinerary</span>
                           </div>
                           <div className="flex items-center gap-1.5">
@@ -299,36 +317,36 @@ export default function Dashboard() {
 
       {/* Discovery Section */}
       <motion.section variants={itemVariants}>
-        <Tilt3D className="rounded-[40px]" intensity={5} glare>
-          <div className="rounded-[40px] p-12 overflow-hidden relative bg-gradient-to-br from-orange-600/20 via-[#12151E] to-indigo-900/15 border border-white/[0.06]">
-            <div className="relative z-10 max-w-xl space-y-6" style={{ transform: 'translateZ(40px)', transformStyle: 'preserve-3d' }}>
-              <span className="text-xs uppercase tracking-[0.2em] font-black text-orange-400/70">Wanderlust Inspiration</span>
+        <Tilt3D className="rounded-[40px]" intensity={8} glare>
+          <div className="rounded-[40px] p-12 overflow-hidden relative bg-gradient-to-br from-white/[0.03] via-[#0D1017] to-white/[0.01] border border-white/[0.06]">
+            <div className="relative z-10 max-w-xl space-y-6" style={{ transform: 'translateZ(45px)', transformStyle: 'preserve-3d' }}>
+              <span className={`text-xs uppercase tracking-[0.2em] font-black ${getAccentColorClass()}`}>Wanderlust Inspiration</span>
               <h2 className="text-5xl md:text-6xl font-light leading-tight text-white">Santorini is <br /><span className="italic font-normal text-white/90">calling...</span></h2>
               <p className="text-base leading-relaxed text-white/40 max-w-md">Discover sun-drenched stone paths, iconic white houses, and romantic sunsets along the beautiful cliffs of Greece.</p>
               <Link to="/explore">
-                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="inline-block">
+                <motion.div whileHover={{ scale: 1.05, rotateY: -10 }} whileTap={{ scale: 0.95 }} className="inline-block">
                   <Button
                     size="lg"
-                    className="rounded-full px-8 h-12 shadow-xl border-none bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold hover:shadow-orange-500/20 hover:shadow-2xl transition-shadow"
+                    className={`rounded-full px-8 h-12 shadow-xl border-none bg-gradient-to-r ${getGradientClass()} text-white font-bold hover:shadow-xl transition-all duration-300`}
                   >
                     Explore Guide
                   </Button>
                 </motion.div>
               </Link>
             </div>
-            {/* Background image */}
+            {/* Background image with parallax scale effect */}
             <motion.img
               initial={{ scale: 1.1, opacity: 0 }}
               animate={{ scale: 1, opacity: 0.5 }}
               transition={{ duration: 1.5, ease: 'easeOut' }}
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.08 }}
               src="https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=2000&auto=format&fit=crop"
               alt="Santorini"
               className="absolute top-0 right-0 w-1/2 h-full object-cover rounded-l-[80px] hidden md:block"
               referrerPolicy="no-referrer"
             />
             {/* Decorative blur orb */}
-            <div className="absolute bottom-0 left-0 w-60 h-60 bg-orange-500/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-60 h-60 bg-white/[0.01] rounded-full blur-3xl" />
           </div>
         </Tilt3D>
       </motion.section>
