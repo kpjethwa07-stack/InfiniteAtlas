@@ -22,10 +22,14 @@ import { cn } from '../lib/utils';
 import { Expense, ExpenseCategory } from '../types';
 import { Label } from '../components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '../components/ui/sheet';
+import { useLanguage } from '../contexts/LanguageContext';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
+import TravelCopilot from '../components/TravelCopilot';
 
 export default function ItineraryView() {
   const { tripId } = useParams();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
@@ -40,6 +44,8 @@ export default function ItineraryView() {
   const [editingNote, setEditingNote] = useState<TripNote | null>(null);
   const [noteContent, setNoteContent] = useState('');
   const [loading, setLoading] = useState(true);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
 
   // New Expense State
   const [expenseTitle, setExpenseTitle] = useState('');
@@ -204,21 +210,25 @@ export default function ItineraryView() {
     e.preventDefault();
     if (!tripId || !expenseTitle || !expenseAmount || !isOwner) return;
     try {
-      await addDoc(collection(db, 'trips', tripId, 'expenses'), {
-        title: expenseTitle,
+      const expenseData: any = {
+        title: expenseTitle.trim(),
         amount: parseFloat(expenseAmount),
         category: expenseCategory,
         date: serverTimestamp(),
-        note: expenseNote
-      });
+      };
+      if (expenseNote.trim()) {
+        expenseData.note = expenseNote.trim();
+      }
+      await addDoc(collection(db, 'trips', tripId, 'expenses'), expenseData);
       toast.success('Expense logged');
       setIsExpenseSheetOpen(false);
       setExpenseTitle('');
       setExpenseAmount('');
       setExpenseCategory(ExpenseCategory.OTHER);
       setExpenseNote('');
-    } catch (e) {
-      toast.error('Failed to log expense');
+    } catch (err: any) {
+      console.error('[Expense] Failed:', err?.code, err?.message);
+      toast.error('Failed to log expense — check permissions');
     }
   };
 
@@ -254,53 +264,47 @@ export default function ItineraryView() {
   };
 
   const deleteTrip = async () => {
-    if (!tripId || !isOwner) return;
-    console.log('[ItineraryView] Attempting to delete trip:', tripId);
-    if (!window.confirm('Are you certain you want to delete this journey? This action cannot be undone.')) return;
-    
+    if (!tripId || !isOwner) {
+      toast.error('You do not have permission to delete this journey.');
+      return;
+    }
+
     setLoading(true);
-    const toastId = toast.loading('Deleting journey and all related data...');
+    const toastId = toast.loading(t('deleting') || 'Deleting journey and all related data...');
     
     try {
-      // 1. Best-effort recursive cleanup of sub-collections
-      const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
-      const allDeletes: any[] = [];
-
+      // Best-effort sub-collection cleanup (never blocks main delete)
       try {
+        const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
+        const allDeletes: any[] = [];
         for (const sub of subCollections) {
           const snap = await getDocs(collection(db, 'trips', tripId, sub));
           for (const docSnap of snap.docs) {
             if (sub === 'stops') {
-              const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
-              for (const actDoc of actSnap.docs) {
-                allDeletes.push(deleteDoc(doc(db, 'trips', tripId, 'stops', docSnap.id, 'activities', actDoc.id)));
-              }
+              try {
+                const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
+                actSnap.docs.forEach(actDoc => allDeletes.push(deleteDoc(actDoc.ref)));
+              } catch { /* best-effort */ }
             }
-            allDeletes.push(deleteDoc(doc(db, 'trips', tripId, sub, docSnap.id)));
+            allDeletes.push(deleteDoc(docSnap.ref));
           }
         }
-
-        if (allDeletes.length > 0) {
-          await Promise.all(allDeletes);
-        }
-      } catch (subError) {
-        console.warn('[ItineraryView] Could not delete all subcollections (permissions):', subError);
+        if (allDeletes.length > 0) await Promise.allSettled(allDeletes);
+      } catch (subErr) {
+        console.warn('[ItineraryView] Sub-collection cleanup failed (non-blocking):', subErr);
       }
 
-      // 2. Delete main trip document
+      // Delete main trip document — this is the critical operation
       await deleteDoc(doc(db, 'trips', tripId));
+      toast.success(t('deleteSuccess') || 'Journey removed from your records.', { id: toastId });
       
-      console.log('[ItineraryView] Trip deleted successfully, navigating...');
-      toast.success('Journey removed from your records.', { id: toastId });
-      
-      // Use a small delay to ensure Firestore events have propagated
       setTimeout(() => {
         navigate('/trips', { replace: true });
       }, 500);
     } catch (error) {
       console.error('[ItineraryView] Delete error:', error);
       handleFirestoreError(error, OperationType.DELETE, `trips/${tripId}`);
-      toast.error('Failed to remove journey.', { id: toastId });
+      toast.error(t('deleteError') || 'Failed to remove journey.', { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -428,7 +432,7 @@ export default function ItineraryView() {
               <Button 
                 variant="outline" 
                 className="rounded-full border-red-500/20 bg-red-500/10 backdrop-blur-md text-red-500 hover:bg-red-500/20 gap-2 hover:text-red-600"
-                onClick={deleteTrip}
+                onClick={() => setIsDeleteDialogOpen(true)}
               >
                 <Trash2 className="w-4 h-4" />
                 Delete Trip
@@ -448,6 +452,10 @@ export default function ItineraryView() {
                 Travel Guide
               </TabsTrigger>
             )}
+            <TabsTrigger value="copilot" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white flex gap-2">
+              <Sparkles className="w-4 h-4 text-orange-400" />
+              AI Co-Pilot
+            </TabsTrigger>
             <TabsTrigger value="budget" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Budget & Analysis</TabsTrigger>
             <TabsTrigger value="packing" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Packing List</TabsTrigger>
             <TabsTrigger value="notes" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Trip Notes</TabsTrigger>
@@ -506,6 +514,11 @@ export default function ItineraryView() {
                 {trip.smartAssistant.localTips}
               </p>
             </Card>
+          </TabsContent>
+        )}
+        {trip && (
+          <TabsContent value="copilot" className="py-8">
+            <TravelCopilot trip={trip} stops={stops} activities={activities} />
           </TabsContent>
         )}
         <TabsContent value="itinerary" className="space-y-12">
@@ -756,6 +769,241 @@ export default function ItineraryView() {
                 </Card>
               </div>
 
+              {/* 3-Tier Budget Estimator */}
+              {(() => {
+                const days = stops.length || 1;
+                const cityNames = stops.map(s => s.cityName).join(', ') || 'your destination';
+                const firstCity = stops[0]?.cityName || 'Destination';
+                const tierData: Record<string, any> = {
+                  budget: {
+                    title: '🎒 Budget', subtitle: 'Backpacker Style', perDay: 40,
+                    color: 'from-emerald-50 to-green-50', border: 'border-emerald-200',
+                    accent: 'text-emerald-700', accentBg: 'bg-emerald-100',
+                    tips: ['Hostels & guesthouses', 'Street food & markets', 'Public transport', 'Free attractions'],
+                    hotels: [
+                      { name: `${firstCity} Backpacker Hostel`, price: '$12–25/night', type: 'Dorm bed', rating: '4.2 ★' },
+                      { name: `${firstCity} Budget Inn`, price: '$20–40/night', type: 'Private room', rating: '3.9 ★' },
+                      { name: 'Couchsurfing / Airbnb Room', price: '$0–30/night', type: 'Shared space', rating: '4.5 ★' },
+                    ],
+                    itinerary: [
+                      { time: 'Morning', activity: 'Free walking tour of old town', cost: '$0 (tips)' },
+                      { time: 'Lunch', activity: 'Street food / local market', cost: '$3–5' },
+                      { time: 'Afternoon', activity: 'Public parks, temples, free museums', cost: '$0–5' },
+                      { time: 'Evening', activity: 'Hostel social events, night markets', cost: '$5–10' },
+                    ],
+                    transport: ['🚌 Public buses & metro', '🚶 Walking tours', '🚲 Bike rentals ($3–5/day)'],
+                    proTips: [
+                      'Book hostels with free breakfast to save $5–10/day',
+                      'Use apps like Rome2Rio for cheapest transport routes',
+                      'Visit attractions on free-entry days (many museums have them)',
+                      'Cook at hostel kitchens — saves 60% on food costs',
+                    ],
+                  },
+                  standard: {
+                    title: '🧳 Standard', subtitle: 'Comfortable Travel', perDay: 120,
+                    color: 'from-blue-50 to-indigo-50', border: 'border-blue-200',
+                    accent: 'text-blue-700', accentBg: 'bg-blue-100',
+                    tips: ['Mid-range hotels', 'Restaurant dining', 'Taxis & tours', 'Paid experiences'],
+                    hotels: [
+                      { name: `${firstCity} Boutique Hotel`, price: '$60–90/night', type: '3-star hotel', rating: '4.4 ★' },
+                      { name: `${firstCity} City Center Inn`, price: '$50–80/night', type: 'Business hotel', rating: '4.3 ★' },
+                      { name: 'Airbnb Entire Apartment', price: '$40–70/night', type: 'Self-catering', rating: '4.6 ★' },
+                    ],
+                    itinerary: [
+                      { time: 'Morning', activity: 'Guided city tour with local expert', cost: '$25–40' },
+                      { time: 'Lunch', activity: 'Popular local restaurant', cost: '$10–20' },
+                      { time: 'Afternoon', activity: 'Museum entry + cultural experience', cost: '$15–30' },
+                      { time: 'Evening', activity: 'Dinner with views + local drinks', cost: '$20–35' },
+                    ],
+                    transport: ['🚕 Ride-sharing (Uber/Bolt)', '🚇 Metro + occasional taxi', '🚐 Day trip shuttles'],
+                    proTips: [
+                      'Book hotels 2–3 weeks ahead for best rates',
+                      'Get a city pass — saves 30–40% on top attractions',
+                      'Lunch at restaurants, dinner at casual spots (cheaper)',
+                      'Use Google Maps "Explore" tab for highly-rated local spots',
+                    ],
+                  },
+                  premium: {
+                    title: '💎 Premium', subtitle: 'Luxury Experience', perDay: 350,
+                    color: 'from-amber-50 to-orange-50', border: 'border-amber-200',
+                    accent: 'text-amber-700', accentBg: 'bg-amber-100',
+                    tips: ['5-star resorts', 'Fine dining', 'Private transfers', 'VIP experiences'],
+                    hotels: [
+                      { name: `${firstCity} Grand Resort & Spa`, price: '$200–400/night', type: '5-star luxury', rating: '4.9 ★' },
+                      { name: `The Ritz / Four Seasons`, price: '$300–600/night', type: 'Iconic luxury', rating: '4.8 ★' },
+                      { name: 'Luxury Villa with Pool', price: '$250–500/night', type: 'Private villa', rating: '4.9 ★' },
+                    ],
+                    itinerary: [
+                      { time: 'Morning', activity: 'Private guided heritage tour', cost: '$80–150' },
+                      { time: 'Lunch', activity: 'Michelin-recommended restaurant', cost: '$40–80' },
+                      { time: 'Afternoon', activity: 'Helicopter tour / yacht charter', cost: '$150–400' },
+                      { time: 'Evening', activity: "Chef's table fine dining", cost: '$80–200' },
+                    ],
+                    transport: ['🚁 Helicopter transfers', '🚘 Private chauffeur', '🛥️ Yacht / speedboat'],
+                    proTips: [
+                      'Book concierge services for skip-the-line VIP access',
+                      'Request room upgrades during off-peak (Mon–Wed arrivals)',
+                      'Use Amex Platinum or similar for hotel perks & lounge access',
+                      'Hire a local luxury travel advisor for hidden gem experiences',
+                    ],
+                  },
+                };
+
+                const tierKeys = ['budget', 'standard', 'premium'];
+                const activeTier = selectedTier ? tierData[selectedTier] : null;
+
+                return (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-end px-4">
+                      <div>
+                        <h3 className="text-2xl font-bold italic">Trip Cost Tiers</h3>
+                        <p className="text-xs text-black/40 mt-1">Click a tier to see detailed planning with hotels, itinerary & tips</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {tierKeys.map((key) => {
+                        const tier = tierData[key];
+                        const total = days * tier.perDay;
+                        const isActive = selectedTier === key;
+                        return (
+                          <div
+                            key={key}
+                            onClick={() => setSelectedTier(isActive ? null : key)}
+                            className={`bg-gradient-to-br ${tier.color} rounded-[32px] p-8 border-2 ${isActive ? 'border-black shadow-2xl scale-[1.02]' : tier.border} space-y-5 hover:shadow-lg transition-all duration-300 cursor-pointer group`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="text-lg font-bold">{tier.title}</h4>
+                                <p className="text-[10px] uppercase tracking-widest font-bold text-black/40">{tier.subtitle}</p>
+                              </div>
+                              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${isActive ? 'bg-black text-white' : 'bg-white/60 text-black/30 group-hover:bg-white'} transition-colors`}>
+                                {isActive ? 'Viewing ▾' : 'Details →'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className={`text-3xl font-black tracking-tight ${tier.accent}`}>${total.toLocaleString()}</span>
+                              <span className="text-xs text-black/30 ml-2">total</span>
+                            </div>
+                            <div className={`inline-block px-3 py-1.5 rounded-full text-[10px] font-black ${tier.accentBg} ${tier.accent}`}>
+                              ~${tier.perDay}/day × {days} {days === 1 ? 'stop' : 'stops'}
+                            </div>
+                            <ul className="space-y-2 pt-2 border-t border-black/5">
+                              {tier.tips.map((tip: string) => (
+                                <li key={tip} className="text-xs text-black/50 flex items-center gap-2">
+                                  <span className="w-1 h-1 rounded-full bg-black/20 shrink-0" />
+                                  {tip}
+                                </li>
+                              ))}
+                            </ul>
+                            {totalCost > 0 && (
+                              <div className="pt-3 border-t border-black/5">
+                                <p className="text-[10px] font-bold text-black/30">
+                                  Your spending: <span className={totalCost > total ? 'text-red-500' : 'text-emerald-600'}>${totalCost.toLocaleString()}</span>
+                                  {totalCost <= total ? ' ✓ Within range' : ' ✗ Over budget'}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Expanded Tier Detail Panel */}
+                    {activeTier && (
+                      <div className={`bg-gradient-to-br ${activeTier.color} rounded-[40px] p-10 border-2 ${activeTier.border} space-y-8 animate-in slide-in-from-top-4 duration-500`}>
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-2xl font-bold">{activeTier.title} — Detailed Planning</h3>
+                          <Button variant="ghost" className="rounded-full text-xs font-bold" onClick={() => setSelectedTier(null)}>
+                            Close ✕
+                          </Button>
+                        </div>
+                        <p className="text-sm text-black/50 -mt-4">For {cityNames} • {days} {days === 1 ? 'stop' : 'stops'}</p>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                          {/* Hotels */}
+                          <div className="bg-white rounded-[28px] p-8 shadow-sm space-y-5">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-black/40 flex items-center gap-2">
+                              🏨 Recommended Stays
+                            </h4>
+                            <div className="space-y-4">
+                              {activeTier.hotels.map((h: any) => (
+                                <div key={h.name} className="flex justify-between items-center p-4 bg-black/[0.02] rounded-2xl hover:bg-black/[0.04] transition-colors">
+                                  <div>
+                                    <p className="font-bold text-sm">{h.name}</p>
+                                    <p className="text-[10px] text-black/40 font-medium">{h.type} • {h.rating}</p>
+                                  </div>
+                                  <span className={`text-sm font-black ${activeTier.accent}`}>{h.price}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Daily Itinerary */}
+                          <div className="bg-white rounded-[28px] p-8 shadow-sm space-y-5">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-black/40 flex items-center gap-2">
+                              📋 Sample Day Plan
+                            </h4>
+                            <div className="space-y-3">
+                              {activeTier.itinerary.map((item: any) => (
+                                <div key={item.time} className="flex items-start gap-4 p-3 rounded-xl">
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-black/30 w-20 shrink-0 pt-0.5">{item.time}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold">{item.activity}</p>
+                                    <p className={`text-xs font-bold ${activeTier.accent}`}>{item.cost}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Map View */}
+                          <div className="bg-white rounded-[28px] p-8 shadow-sm space-y-5">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-black/40 flex items-center gap-2">
+                              🗺️ Interactive Map
+                            </h4>
+                            <div className="h-48 rounded-2xl overflow-hidden bg-black/5">
+                              <iframe
+                                title="Map view"
+                                width="100%"
+                                height="100%"
+                                style={{ border: 0 }}
+                                loading="lazy"
+                                src={`https://www.openstreetmap.org/export/embed.html?bbox=-180,-60,180,80&layer=mapnik&marker=0,0`}
+                              />
+                            </div>
+                            <p className="text-[10px] text-black/30 italic text-center">
+                              Showing key areas near {cityNames}
+                            </p>
+                          </div>
+
+                          {/* Transport & Pro Tips */}
+                          <div className="bg-white rounded-[28px] p-8 shadow-sm space-y-5">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-black/40 flex items-center gap-2">
+                              🧠 Expert Tips
+                            </h4>
+                            <div className="space-y-2 mb-4">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-black/20">Transport</p>
+                              {activeTier.transport.map((t: string) => (
+                                <p key={t} className="text-sm text-black/60">{t}</p>
+                              ))}
+                            </div>
+                            <div className="space-y-3 pt-4 border-t border-black/5">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-black/20">Money-Saving Tips</p>
+                              {activeTier.proTips.map((tip: string, i: number) => (
+                                <div key={i} className="flex items-start gap-3">
+                                  <span className={`text-xs font-black ${activeTier.accent} shrink-0`}>{i + 1}.</span>
+                                  <p className="text-xs text-black/60 leading-relaxed">{tip}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Transactions List */}
               <div className="space-y-6">
                 <div className="flex justify-between items-end px-4">
@@ -1000,6 +1248,12 @@ export default function ItineraryView() {
            </Dialog>
         </TabsContent>
       </Tabs>
+
+      <DeleteConfirmDialog 
+        isOpen={isDeleteDialogOpen}
+        onClose={() => setIsDeleteDialogOpen(false)}
+        onConfirm={deleteTrip}
+      />
     </div>
   );
 }

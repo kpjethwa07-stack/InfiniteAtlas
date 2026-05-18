@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, MapPin, Compass, Star, Camera, Globe, ArrowRight } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const DESTINATIONS = [
   {
@@ -18,7 +19,7 @@ const DESTINATIONS = [
   {
     id: 2,
     name: 'Amalfi Coast, Italy',
-    image: 'https://images.unsplash.com/photo-1533903345206-13a891968596?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1520116468816-95b69fab8473?q=80&w=1200&auto=format&fit=crop',
     category: 'Coastal',
     rating: 4.8,
     description: 'Dramatic cliffs and pastel-colored villages overlooking the turquoise sea.'
@@ -34,7 +35,7 @@ const DESTINATIONS = [
   {
     id: 4,
     name: 'Zermatt, Switzerland',
-    image: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1491555103944-7c647fd857e6?q=80&w=1200&auto=format&fit=crop',
     category: 'Nature',
     rating: 5.0,
     description: 'Glacial lakes and majestic mountains in the heart of the Swiss Alps.'
@@ -50,7 +51,7 @@ const DESTINATIONS = [
   {
     id: 6,
     name: 'Reykjavik, Iceland',
-    image: 'https://images.unsplash.com/photo-1476610182048-b716b8518aae?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1531366930477-4fbd0ce505d0?q=80&w=1200&auto=format&fit=crop',
     category: 'Nature',
     rating: 4.8,
     description: 'Breathtaking waterfalls, volcanic landscapes, and Northern Lights.'
@@ -90,7 +91,7 @@ const DESTINATIONS = [
   {
     id: 11,
     name: 'Serengeti, Tanzania',
-    image: 'https://images.unsplash.com/photo-1516422317184-268504f19cd0?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?q=80&w=1200&auto=format&fit=crop',
     category: 'Exotic',
     rating: 4.9,
     description: 'Unforgettable safaris through vast plains and diverse wildlife encounters.'
@@ -106,6 +107,8 @@ const DESTINATIONS = [
 ];
 
 export default function Explore() {
+  const { t } = useLanguage();
+  const navigate = useNavigate();
   const [activeCategory, setActiveCategory] = useState('All');
 
   const filteredDestinations = activeCategory === 'All' 
@@ -130,9 +133,9 @@ export default function Explore() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <Badge className="bg-white/20 text-white backdrop-blur-md mb-4 px-4 py-1 rounded-full border-none font-medium">✨ Discover New Horizons</Badge>
-            <h1 className="text-6xl font-bold text-white tracking-tight italic">Find your next <br />great story.</h1>
-            <p className="text-white/90 text-xl font-medium mt-4">Curated destinations for the modern traveller.</p>
+            <Badge className="bg-white/20 text-white backdrop-blur-md mb-4 px-4 py-1 rounded-full border-none font-medium">✨ {t('discoverNewHorizons') || 'Discover New Horizons'}</Badge>
+            <h1 className="text-6xl font-bold text-white tracking-tight italic">{t('findNextStory') || 'Find your next great story.'}</h1>
+            <p className="text-white/90 text-xl font-medium mt-4">{t('curatedDestinations') || 'Curated destinations for the modern traveller.'}</p>
           </motion.div>
           
           <motion.form 
@@ -142,9 +145,9 @@ export default function Explore() {
             className="flex gap-4 p-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 max-w-xl"
             onSubmit={(e: React.FormEvent<HTMLFormElement>) => {
               e.preventDefault();
-              const input = e.currentTarget.elements.namedItem('search') as HTMLInputElement;
+              const input = (e.currentTarget.elements.namedItem('search') as HTMLInputElement);
               if (input && input.value) {
-                window.location.href = `/trips/new?destination=${encodeURIComponent(input.value)}`;
+                navigate(`/trips/new?destination=${encodeURIComponent(input.value)}`);
               }
             }}
           >
@@ -152,12 +155,12 @@ export default function Explore() {
               <Search className="w-5 h-5 text-white/40" />
               <Input 
                 name="search"
-                placeholder="Where to next?" 
+                placeholder={t('whereToNext') || 'Where to next?'} 
                 className="bg-transparent border-none text-white placeholder:text-white/40 focus-visible:ring-0 h-10 p-0 text-lg" 
               />
             </div>
             <Button type="submit" className="bg-white text-black hover:bg-white/90 rounded-full px-8 h-12 font-bold uppercase tracking-wider text-xs">
-              Explore
+              {t('explore') || 'Explore'}
             </Button>
           </motion.form>
         </div>
@@ -188,11 +191,11 @@ export default function Explore() {
       <section className="space-y-8">
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold tracking-tight italic">
-            {activeCategory === 'All' ? 'Featured Collections' : `${activeCategory} Getaways`}
+            {activeCategory === 'All' ? (t('featuredCollections') || 'Featured Collections') : `${activeCategory} ${t('getaways') || 'Getaways'}`}
           </h2>
           <Link to="/collections">
             <Button variant="ghost" className="font-bold uppercase tracking-widest text-xs gap-2">
-              View All <ArrowRight className="w-4 h-4" />
+              {t('viewAll') || 'View All'} <ArrowRight className="w-4 h-4" />
             </Button>
           </Link>
         </div>
@@ -257,7 +260,9 @@ export default function Explore() {
           <Badge className="bg-black/5 text-black px-4 py-1 rounded-full border-none font-bold uppercase tracking-widest text-[10px]">Community Highlights</Badge>
           <h2 className="text-5xl font-bold tracking-tight italic">Share your <br />story with us.</h2>
           <p className="text-black/60 text-lg font-medium max-w-md">Join over 10,000 travellers sharing their itineraries, secret spots, and travel hacks daily.</p>
-          <Button className="bg-black text-white rounded-full px-10 h-14 font-bold uppercase tracking-wider">Join Wayfarers</Button>
+          <Link to="/trips/new">
+            <Button className="bg-black text-white rounded-full px-10 h-14 font-bold uppercase tracking-wider hover:bg-black/90 transition-all">Join Wayfarers</Button>
+          </Link>
         </div>
         <div className="flex-1 grid grid-cols-2 gap-4">
            <div className="space-y-4 pt-8">

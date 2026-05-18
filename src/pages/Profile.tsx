@@ -9,7 +9,8 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { toast } from 'sonner';
-import { User, Mail, Shield, Camera, LogOut, Map, Award, Settings, Trash2, ChevronRight, Globe } from 'lucide-react';
+import { User, Mail, Shield, Camera, LogOut, Map, Award, Settings, Trash2, ChevronRight, Globe, Languages } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { motion } from 'motion/react';
 
 const containerVariants = {
@@ -33,6 +34,7 @@ const itemVariants = {
 
 export default function Profile() {
   const { user } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -230,8 +232,47 @@ export default function Profile() {
                  disabled={loading}
                  className="rounded-full h-11 px-8 bg-black text-white font-bold hover:bg-black/90 transition-all shadow-lg shadow-black/10 text-sm"
               >
-                {loading ? 'Updating...' : 'Save Changes'}
+                {loading ? 'Updating...' : t('saveChanges')}
               </Button>
+            </div>
+          </section>
+
+          {/* Language Settings */}
+          <section>
+            <div className="flex items-center gap-2.5 mb-4 px-1">
+              <Languages className="w-4 h-4 text-black/50" />
+              <h2 className="text-xl sm:text-2xl font-serif italic font-bold">International</h2>
+            </div>
+
+            <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-black/5 space-y-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-[10px] uppercase tracking-[0.15em] font-black text-black/60 ml-1">{t('language')}</Label>
+                  <p className="text-sm text-black/40 ml-1 mb-4">{t('selectLanguage')}</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      { id: 'en', name: 'English', flag: '🇺🇸' },
+                      { id: 'fr', name: 'Français', flag: '🇫🇷' },
+                      { id: 'es', name: 'Español', flag: '🇪🇸' },
+                      { id: 'de', name: 'Deutsch', flag: '🇩🇪' },
+                      { id: 'it', name: 'Italiano', flag: '🇮🇹' },
+                    ].map((lang) => (
+                      <button
+                        key={lang.id}
+                        onClick={() => setLanguage(lang.id as any)}
+                        className={`flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all ${
+                          language === lang.id 
+                            ? 'border-black bg-black/5' 
+                            : 'border-transparent bg-black/[0.03] hover:bg-black/[0.05]'
+                        }`}
+                      >
+                        <span className="font-bold text-sm">{lang.name}</span>
+                        <span className="text-lg">{lang.flag}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 

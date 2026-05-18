@@ -12,6 +12,8 @@ import { Skeleton } from '../components/ui/skeleton';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
+import { useLanguage } from '../contexts/LanguageContext';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 
 import { motion } from 'motion/react';
 
@@ -39,6 +41,7 @@ const itemVariants = {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const tripsRef = collection(db, 'trips');
   const recentTripsQuery = query(
     tripsRef,
@@ -50,43 +53,40 @@ export default function Dashboard() {
   const [recentTripsSnapshot, recentLoading] = useCollection(user?.uid ? recentTripsQuery : null);
   const recentTrips = recentTripsSnapshot?.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
-  const handleDelete = async (e: React.MouseEvent, tripId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('[Dashboard] Deleting trip:', tripId);
-    
-    if (!window.confirm('Remove this journey from your history?')) return;
-    
-    const toastId = toast.loading('Removing journey...');
+  const [tripToDelete, setTripToDelete] = React.useState<string | null>(null);
+
+  const handleDelete = async (tripId: string) => {
+    const toastId = toast.loading(t('deleting') || 'Removing journey...');
     try {
-      // Cleanup sub-collections
-      const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
-      const allDeletes: any[] = [];
-
-      for (const sub of subCollections) {
-        const snap = await getDocs(collection(db, 'trips', tripId, sub));
-        for (const docSnap of snap.docs) {
-          if (sub === 'stops') {
-            const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
-            for (const actDoc of actSnap.docs) {
-              allDeletes.push(deleteDoc(doc(db, 'trips', tripId, 'stops', docSnap.id, 'activities', actDoc.id)));
+      // Best-effort cleanup of sub-collections (wrapped in try-catch so it never blocks main delete)
+      try {
+        const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
+        const allDeletes: any[] = [];
+        for (const sub of subCollections) {
+          const snap = await getDocs(collection(db, 'trips', tripId, sub));
+          for (const docSnap of snap.docs) {
+            if (sub === 'stops') {
+              try {
+                const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
+                actSnap.docs.forEach(actDoc => allDeletes.push(deleteDoc(actDoc.ref)));
+              } catch { /* activities cleanup is best-effort */ }
             }
+            allDeletes.push(deleteDoc(docSnap.ref));
           }
-          allDeletes.push(deleteDoc(doc(db, 'trips', tripId, sub, docSnap.id)));
         }
+        if (allDeletes.length > 0) await Promise.allSettled(allDeletes);
+      } catch (subErr) {
+        console.warn('[Dashboard] Sub-collection cleanup failed (non-blocking):', subErr);
       }
 
-      if (allDeletes.length > 0) {
-        await Promise.all(allDeletes);
-      }
-
+      // Delete main trip document — this is the critical operation
       await deleteDoc(doc(db, 'trips', tripId));
       console.log('[Dashboard] Trip deleted successfully');
-      toast.success('Journey removed.', { id: toastId });
+      toast.success(t('deleteSuccess') || 'Journey removed.', { id: toastId });
     } catch (error) {
       console.error('[Dashboard] Delete error:', error);
       handleFirestoreError(error, OperationType.DELETE, `trips/${tripId}`);
-      toast.error('Failed to remove journey.', { id: toastId });
+      toast.error(t('deleteError') || 'Failed to remove journey.', { id: toastId });
     }
   };
 
@@ -103,6 +103,13 @@ export default function Dashboard() {
   const totalBudget = allTrips?.reduce((acc: number, t: any) => acc + (t.budgetLimit || 0), 0) || 0;
   const daysUntilUpcoming = upcomingTrip ? Math.ceil((upcomingTrip.startDate.toDate().getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return t('welcome') + ' ☀️';
+    if (hour < 17) return t('welcome');
+    return t('welcome') + ' 🌙';
+  };
+
   return (
     <motion.div 
       className="space-y-12"
@@ -113,13 +120,13 @@ export default function Dashboard() {
       {/* Header */}
       <motion.div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4" variants={itemVariants}>
         <div>
-          <h1 className="text-4xl font-bold tracking-tight">Bonjour, {user?.displayName?.split(' ')[0]}</h1>
-          <p className="text-black/40 mt-2 text-lg italic">Where will your curiosity lead you today?</p>
+          <h1 className="text-4xl font-bold tracking-tight">{getGreeting()}, {user?.displayName?.split(' ')[0]} 👋</h1>
+          <p className="text-black/40 mt-2 text-lg italic">{t('curiosity')}</p>
         </div>
         <Link to="/trips/new">
           <Button size="lg" className="rounded-full gap-2 bg-black text-white hover:bg-black/90 transition-transform hover:scale-105 active:scale-95">
             <Sparkles className="w-5 h-5 text-orange-400" />
-            Smart Plan
+            {t('smartPlan')}
           </Button>
         </Link>
       </motion.div>
@@ -168,12 +175,30 @@ export default function Dashboard() {
         </Card>
       </motion.div>
 
+      {/* Motivational Travel Quote */}
+      <motion.div variants={itemVariants} className="px-2">
+        <div className="flex items-center gap-4 py-4 px-6 bg-white/60 rounded-2xl border border-black/[0.04]">
+          <span className="text-2xl">✨</span>
+          <p className="text-sm text-black/50 italic font-medium">
+            {[
+              '"The world is a book, and those who do not travel read only one page." — St. Augustine',
+              '"Travel makes one modest. You see what a tiny place you occupy in the world." — Gustave Flaubert',
+              '"Life is either a daring adventure or nothing at all." — Helen Keller',
+              '"Not all those who wander are lost." — J.R.R. Tolkien',
+              '"To travel is to live." — Hans Christian Andersen',
+              '"Adventure is worthwhile in itself." — Amelia Earhart',
+              '"The journey not the arrival matters." — T.S. Eliot',
+            ][new Date().getDay()]}
+          </p>
+        </div>
+      </motion.div>
+
       {/* Recent Trips Section */}
       <motion.section className="space-y-6" variants={itemVariants}>
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold tracking-tight">Recent Plans</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{t('recentPlans')}</h2>
           <Link to="/trips" className="text-sm font-semibold text-black/40 hover:text-black flex items-center gap-1">
-            View All <ArrowRight className="w-4 h-4" />
+            {t('viewAll')} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
@@ -221,7 +246,11 @@ export default function Dashboard() {
                     variant="ghost" 
                     size="icon" 
                     className="rounded-full bg-white/10 backdrop-blur-md text-white/40 hover:text-red-400 hover:bg-white/20 transition-all opacity-0 group-hover:opacity-100"
-                    onClick={(e) => handleDelete(e, trip.id)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setTripToDelete(trip.id);
+                    }}
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -242,6 +271,12 @@ export default function Dashboard() {
           )}
         </div>
       </motion.section>
+
+      <DeleteConfirmDialog 
+        isOpen={!!tripToDelete}
+        onClose={() => setTripToDelete(null)}
+        onConfirm={() => tripToDelete && handleDelete(tripToDelete)}
+      />
 
       {/* Discovery Section */}
       <motion.section className="bg-orange-500 rounded-[48px] p-12 text-white overflow-hidden relative" variants={itemVariants}>

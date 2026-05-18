@@ -12,6 +12,8 @@ import { format } from 'date-fns';
 import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { toast } from 'sonner';
+import { useLanguage } from '../contexts/LanguageContext';
+import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
 
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -26,6 +28,7 @@ L.Icon.Default.mergeOptions({
 
 export default function TripList() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
   const tripsRef = collection(db, 'trips');
   const userTripsQuery = query(
@@ -50,47 +53,38 @@ export default function TripList() {
     };
   });
 
-  const handleDelete = async (e: React.MouseEvent, tripId: string) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('[TripList] Deleting trip:', tripId);
-    
-    if (!window.confirm('Delete this trip?')) return;
-    
-    const toastId = toast.loading('Removing journey...');
-    try {
-      // Best-effort recursive cleanup
-      const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
-      const allDeletes: any[] = [];
+  const [tripToDelete, setTripToDelete] = useState<string | null>(null);
 
+  const handleDelete = async (tripId: string) => {
+    if (!tripId) return;
+    const toastId = toast.loading(t('deleting') || 'Removing journey...');
+    try {
+      // Best-effort sub-collection cleanup (never blocks main delete)
       try {
+        const subCollections = ['stops', 'packingItems', 'notes', 'expenses'];
+        const allDeletes: any[] = [];
         for (const sub of subCollections) {
           const snap = await getDocs(collection(db, 'trips', tripId, sub));
           for (const docSnap of snap.docs) {
             if (sub === 'stops') {
-              const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
-              for (const actDoc of actSnap.docs) {
-                allDeletes.push(deleteDoc(doc(db, 'trips', tripId, 'stops', docSnap.id, 'activities', actDoc.id)));
-              }
+              try {
+                const actSnap = await getDocs(collection(db, 'trips', tripId, 'stops', docSnap.id, 'activities'));
+                actSnap.docs.forEach(actDoc => allDeletes.push(deleteDoc(actDoc.ref)));
+              } catch { /* best-effort */ }
             }
-            allDeletes.push(deleteDoc(doc(db, 'trips', tripId, sub, docSnap.id)));
+            allDeletes.push(deleteDoc(docSnap.ref));
           }
         }
-
-        if (allDeletes.length > 0) {
-          await Promise.all(allDeletes);
-        }
-      } catch (subError) {
-        console.warn('[TripList] Could not delete all subcollections (permissions):', subError);
+        if (allDeletes.length > 0) await Promise.allSettled(allDeletes);
+      } catch (subErr) {
+        console.warn('[TripList] Sub-collection cleanup failed (non-blocking):', subErr);
       }
 
-      // Finally delete the trip itself
       await deleteDoc(doc(db, 'trips', tripId));
-      console.log('[TripList] Trip deleted successfully');
-      toast.success('Trip deleted', { id: toastId });
+      toast.success(t('deleteSuccess') || 'Trip deleted', { id: toastId });
     } catch (error) {
       console.error('[TripList] Delete error:', error);
-      toast.error('Failed to delete trip', { id: toastId });
+      toast.error(t('deleteError') || 'Failed to delete trip', { id: toastId });
     }
   };
 
@@ -189,7 +183,11 @@ export default function TripList() {
                 variant="ghost" 
                 size="icon" 
                 className="absolute top-6 right-6 z-30 rounded-full h-8 w-8 text-black/10 hover:text-red-500 hover:bg-red-50 transition-colors"
-                onClick={(e) => handleDelete(e, trip.id)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTripToDelete(trip.id);
+                }}
               >
                 <Trash2 className="w-4 h-4" />
               </Button>
@@ -237,6 +235,11 @@ export default function TripList() {
           )}
         </div>
       )}
+      <DeleteConfirmDialog 
+        isOpen={!!tripToDelete}
+        onClose={() => setTripToDelete(null)}
+        onConfirm={() => tripToDelete && handleDelete(tripToDelete)}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, MapPin, Compass, Star, Camera, Globe, ArrowRight, ChevronLeft } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -18,7 +19,7 @@ const ALL_COLLECTIONS = [
   {
     id: 2,
     name: 'Amalfi Coast, Italy',
-    image: 'https://images.unsplash.com/photo-1533903345206-13a891968596?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1520116468816-95b69fab8473?q=80&w=1200&auto=format&fit=crop',
     category: 'Coastal',
     rating: 4.8,
     description: 'Dramatic cliffs and pastel-colored villages overlooking the turquoise sea.'
@@ -34,7 +35,7 @@ const ALL_COLLECTIONS = [
   {
     id: 4,
     name: 'Zermatt, Switzerland',
-    image: 'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1491555103944-7c647fd857e6?q=80&w=1200&auto=format&fit=crop',
     category: 'Nature',
     rating: 5.0,
     description: 'Glacial lakes and majestic mountains in the heart of the Swiss Alps.'
@@ -50,7 +51,7 @@ const ALL_COLLECTIONS = [
   {
     id: 6,
     name: 'Reykjavik, Iceland',
-    image: 'https://images.unsplash.com/photo-1476610182048-b716b8518aae?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1531366930477-4fbd0ce505d0?q=80&w=1200&auto=format&fit=crop',
     category: 'Nature',
     rating: 4.8,
     description: 'Breathtaking waterfalls, volcanic landscapes, and Northern Lights.'
@@ -90,7 +91,7 @@ const ALL_COLLECTIONS = [
   {
     id: 11,
     name: 'Serengeti, Tanzania',
-    image: 'https://images.unsplash.com/photo-1516422317184-268504f19cd0?q=80&w=1200&auto=format&fit=crop',
+    image: 'https://images.unsplash.com/photo-1516026672322-bc52d61a55d5?q=80&w=1200&auto=format&fit=crop',
     category: 'Exotic',
     rating: 4.9,
     description: 'Unforgettable safaris through vast plains and diverse wildlife encounters.'
@@ -138,6 +139,7 @@ const ALL_COLLECTIONS = [
 ];
 
 export default function Collections() {
+  const { t } = useLanguage();
   const [activeCategory, setActiveCategory] = useState('All');
   const navigate = useNavigate();
 
@@ -155,11 +157,11 @@ export default function Collections() {
           onClick={() => navigate('/explore')}
         >
           <ChevronLeft className="w-5 h-5 mr-2 transition-transform group-hover:-translate-x-1" />
-          Back to Explore
+          {t('backToExplore') || 'Back to Explore'}
         </Button>
         <div className="space-y-2">
-            <h1 className="text-6xl font-bold tracking-tighter leading-tight italic">All Collections</h1>
-            <p className="text-xl text-black/60 font-medium max-w-2xl">Our complete library of hand-picked destinations for every kind of adventure.</p>
+            <h1 className="text-6xl font-bold tracking-tighter leading-tight italic">{t('allCollections') || 'All Collections'}</h1>
+            <p className="text-xl text-black/60 font-medium max-w-2xl">{t('allCollectionsDesc') || 'Our complete library of hand-picked destinations for every kind of adventure.'}</p>
         </div>
       </section>
 
