@@ -24,7 +24,6 @@ import { Label } from '../components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetFooter } from '../components/ui/sheet';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
-import TravelCopilot from '../components/TravelCopilot';
 
 export default function ItineraryView() {
   const { tripId } = useParams();
@@ -452,10 +451,6 @@ export default function ItineraryView() {
                 Travel Guide
               </TabsTrigger>
             )}
-            <TabsTrigger value="copilot" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white flex gap-2">
-              <Sparkles className="w-4 h-4 text-orange-400" />
-              AI Co-Pilot
-            </TabsTrigger>
             <TabsTrigger value="budget" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Budget & Analysis</TabsTrigger>
             <TabsTrigger value="packing" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Packing List</TabsTrigger>
             <TabsTrigger value="notes" className="rounded-full px-8 data-[state=active]:bg-black data-[state=active]:text-white">Trip Notes</TabsTrigger>
@@ -514,11 +509,6 @@ export default function ItineraryView() {
                 {trip.smartAssistant.localTips}
               </p>
             </Card>
-          </TabsContent>
-        )}
-        {trip && (
-          <TabsContent value="copilot" className="py-8">
-            <TravelCopilot trip={trip} stops={stops} activities={activities} />
           </TabsContent>
         )}
         <TabsContent value="itinerary" className="space-y-12">
@@ -868,7 +858,15 @@ export default function ItineraryView() {
                         return (
                           <div
                             key={key}
-                            onClick={() => setSelectedTier(isActive ? null : key)}
+                            onClick={() => {
+                              const nextTier = isActive ? null : key;
+                              setSelectedTier(nextTier);
+                              if (nextTier) {
+                                setTimeout(() => {
+                                  document.getElementById('tier-details-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }, 100);
+                              }
+                            }}
                             className={`bg-gradient-to-br ${tier.color} rounded-[32px] p-8 border-2 ${isActive ? 'border-black shadow-2xl scale-[1.02]' : tier.border} space-y-5 hover:shadow-lg transition-all duration-300 cursor-pointer group`}
                           >
                             <div className="flex justify-between items-start">
@@ -910,7 +908,7 @@ export default function ItineraryView() {
 
                     {/* Expanded Tier Detail Panel */}
                     {activeTier && (
-                      <div className={`bg-gradient-to-br ${activeTier.color} rounded-[40px] p-10 border-2 ${activeTier.border} space-y-8 animate-in slide-in-from-top-4 duration-500`}>
+                      <div id="tier-details-panel" className={`bg-gradient-to-br ${activeTier.color} rounded-[40px] p-10 border-2 ${activeTier.border} space-y-8 animate-in slide-in-from-top-4 duration-500`}>
                         <div className="flex justify-between items-center">
                           <h3 className="text-2xl font-bold">{activeTier.title} — Detailed Planning</h3>
                           <Button variant="ghost" className="rounded-full text-xs font-bold" onClick={() => setSelectedTier(null)}>
