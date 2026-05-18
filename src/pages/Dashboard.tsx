@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, limit, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { useCollection } from 'react-firebase-hooks/firestore';
-import { Trip } from '../types';
 import { Button } from '../components/ui/button';
 import { Link } from 'react-router-dom';
 import { Plus, ArrowRight, Calendar, MapPin, DollarSign, Globe, Plane, Trash2 } from 'lucide-react';
@@ -13,7 +12,7 @@ import { toast } from 'sonner';
 import { handleFirestoreError, OperationType } from '../lib/firestoreUtils';
 import { useLanguage } from '../contexts/LanguageContext';
 import { DeleteConfirmDialog } from '../components/DeleteConfirmDialog';
-import { useTheme } from '../contexts/ThemeContext';
+import { Tilt3D } from '../components/Tilt3D';
 
 import { motion } from 'motion/react';
 
@@ -21,28 +20,22 @@ const containerVariants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
+    transition: { staggerChildren: 0.12 }
   }
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: {
-      duration: 0.6,
-      ease: [0.16, 1, 0.3, 1]
-    }
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] }
   }
 };
 
 export default function Dashboard() {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const { theme } = useTheme();
   const tripsRef = collection(db, 'trips');
   const recentTripsQuery = query(
     tripsRef,
@@ -108,10 +101,8 @@ export default function Dashboard() {
     return 'Good evening';
   };
 
-  const isDark = theme === 'midnight' || theme === 'sunset';
-
   return (
-    <motion.div 
+    <motion.div
       className="space-y-12"
       initial="hidden"
       animate="visible"
@@ -120,101 +111,88 @@ export default function Dashboard() {
       {/* Header */}
       <motion.div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4" variants={itemVariants}>
         <div>
-          <h1 className={`text-4xl font-bold tracking-tight transition-colors duration-500 ${isDark ? 'text-white' : 'text-black'}`}>{getGreeting()}, {user?.displayName?.split(' ')[0]} 👋</h1>
-          <p className={`mt-2 text-lg italic font-medium transition-colors duration-500 ${isDark ? 'text-slate-400' : 'text-black/40'}`}>Where will your dreams take you today?</p>
+          <h1 className="text-4xl font-bold tracking-tight text-white">{getGreeting()}, {user?.displayName?.split(' ')[0]} 👋</h1>
+          <p className="mt-2 text-lg italic font-medium text-white/30">Where will your dreams take you next?</p>
         </div>
         <Link to="/trips/new">
-          <Button 
-            size="lg" 
-            className={`rounded-full gap-2 transition-all hover:scale-105 active:scale-95 px-8 h-12 text-sm font-black shadow-md ${
-              theme === 'sand' && 'bg-black text-white hover:bg-black/90' ||
-              theme === 'midnight' && 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-cyan-500/25' ||
-              theme === 'sunset' && 'bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:opacity-95 shadow-pink-500/20'
-            }`}
-          >
-            <Plus className="w-5 h-5" />
-            Create a Journey
-          </Button>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Button
+              size="lg"
+              className="rounded-full gap-2 px-8 h-12 text-sm font-bold shadow-lg bg-gradient-to-r from-orange-500 to-amber-500 text-white border-none hover:shadow-orange-500/20 hover:shadow-xl transition-shadow"
+            >
+              <Plus className="w-5 h-5" />
+              Create a Journey
+            </Button>
+          </motion.div>
         </Link>
       </motion.div>
 
-      {/* Stats / Quick Summary */}
-      <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={itemVariants}>
-        {/* Next Destination Card */}
-        <motion.div 
-          whileHover={{ y: -6, scale: 1.015 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`rounded-[32px] p-8 hover:shadow-xl transition-all duration-300 cursor-default border ${
-            theme === 'sand' && 'border-black/[0.04] bg-white/75 backdrop-blur-xl shadow-sm' ||
-            theme === 'midnight' && 'border-cyan-500/10 bg-slate-900/40 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.02)]' ||
-            theme === 'sunset' && 'border-pink-500/10 bg-purple-950/20 backdrop-blur-xl shadow-[0_0_20px_rgba(236,72,153,0.02)]'
-          }`}
-        >
-          <div className="space-y-4">
-            <span className={`uppercase text-[9px] tracking-widest font-black block ${isDark ? 'text-slate-500' : 'text-black/40'}`}>Next Destination</span>
-            <h3 className={`text-2xl font-black italic truncate ${isDark ? 'text-white' : 'text-black/80'}`}>
-              {upcomingTrip ? upcomingTrip.title : 'Ready for discovery'}
-            </h3>
-            <div className={`flex items-center gap-2 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-black/50'}`}>
-              <Calendar className={`w-4 h-4 ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-orange-500'}`} />
-              <span>{daysUntilUpcoming !== null ? `Begins in ${daysUntilUpcoming} days` : 'No upcoming journeys'}</span>
+      {/* 3D Stats Cards */}
+      <motion.div className="grid grid-cols-1 md:grid-cols-3 gap-6" variants={itemVariants} style={{ perspective: 1200 }}>
+        {/* Next Destination */}
+        <Tilt3D className="rounded-[28px]" intensity={12}>
+          <div className="rounded-[28px] p-8 bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] backdrop-blur-xl h-full">
+            <div className="space-y-4" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
+              <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-orange-400" />
+              </div>
+              <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Next Destination</span>
+              <h3 className="text-2xl font-black text-white truncate">
+                {upcomingTrip ? upcomingTrip.title : 'Ready for discovery'}
+              </h3>
+              <div className="flex items-center gap-2 text-xs font-bold text-white/40">
+                <Calendar className="w-4 h-4 text-orange-400/60" />
+                <span>{daysUntilUpcoming !== null ? `Begins in ${daysUntilUpcoming} days` : 'No upcoming journeys'}</span>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </Tilt3D>
 
-        {/* Total Funds Card */}
-        <motion.div 
-          whileHover={{ y: -6, scale: 1.015 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`rounded-[32px] p-8 hover:shadow-2xl transition-all duration-300 cursor-default border ${
-            theme === 'sand' && 'bg-gradient-to-br from-neutral-900 via-neutral-850 to-neutral-950 text-white border-neutral-800 shadow-lg' ||
-            theme === 'midnight' && 'bg-slate-900 border-slate-800 text-white shadow-lg' ||
-            theme === 'sunset' && 'bg-gradient-to-br from-purple-950 to-indigo-950 border-purple-900/60 text-white shadow-lg shadow-purple-950/20'
-          }`}
-        >
-          <div className="space-y-4">
-            <span className="uppercase text-[9px] tracking-widest font-black text-white/40 block">Allocated Funds</span>
-            <h3 className="text-3xl font-black tracking-tight">${totalBudget.toLocaleString()}</h3>
-            <div className="flex items-center gap-2 text-xs font-bold text-white/60">
-              <DollarSign className={`w-4 h-4 ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-emerald-400'}`} />
-              <span>Set aside across {allTrips?.length || 0} journeys</span>
+        {/* Total Funds */}
+        <Tilt3D className="rounded-[28px]" intensity={12}>
+          <div className="rounded-[28px] p-8 bg-gradient-to-br from-orange-500/20 to-amber-600/10 border border-orange-500/15 backdrop-blur-xl h-full relative overflow-hidden">
+            {/* Decorative glow */}
+            <div className="absolute -top-16 -right-16 w-40 h-40 bg-orange-500/10 rounded-full blur-3xl" />
+            <div className="space-y-4 relative z-10" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
+              <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-400" />
+              </div>
+              <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Allocated Funds</span>
+              <h3 className="text-3xl font-black tracking-tight text-white">${totalBudget.toLocaleString()}</h3>
+              <div className="flex items-center gap-2 text-xs font-bold text-white/40">
+                <Globe className="w-4 h-4 text-emerald-400/60" />
+                <span>Set aside across {allTrips?.length || 0} journeys</span>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </Tilt3D>
 
-        {/* Wayfarer Status Card */}
-        <motion.div 
-          whileHover={{ y: -6, scale: 1.015 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-          className={`rounded-[32px] p-8 hover:shadow-xl transition-all duration-300 cursor-default border ${
-            theme === 'sand' && 'border-black/[0.04] bg-white/75 backdrop-blur-xl shadow-sm' ||
-            theme === 'midnight' && 'border-cyan-500/10 bg-slate-900/40 backdrop-blur-xl shadow-[0_0_20px_rgba(6,182,212,0.02)]' ||
-            theme === 'sunset' && 'border-pink-500/10 bg-purple-950/20 backdrop-blur-xl shadow-[0_0_20px_rgba(236,72,153,0.02)]'
-          }`}
-        >
-          <div className="space-y-4">
-            <span className={`uppercase text-[9px] tracking-widest font-black block ${isDark ? 'text-slate-500' : 'text-black/40'}`}>Exploration Status</span>
-            <h3 className={`text-2xl font-black italic ${isDark ? 'text-white' : 'text-black/80'}`}>{allTrips?.length || 0} {allTrips?.length === 1 ? 'Journey' : 'Journeys'}</h3>
-            <div className={`flex items-center gap-2 text-xs font-bold ${isDark ? 'text-slate-400' : 'text-black/50'}`}>
-              <Globe className={`w-4 h-4 ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-blue-500'}`} />
-              <span>Active Wayfarer</span>
+        {/* Exploration Status */}
+        <Tilt3D className="rounded-[28px]" intensity={12}>
+          <div className="rounded-[28px] p-8 bg-gradient-to-br from-white/[0.06] to-white/[0.02] border border-white/[0.06] backdrop-blur-xl h-full">
+            <div className="space-y-4" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-indigo-400" />
+              </div>
+              <span className="uppercase text-[9px] tracking-widest font-black text-white/30 block">Your Adventures</span>
+              <h3 className="text-2xl font-black text-white">{allTrips?.length || 0} {allTrips?.length === 1 ? 'Journey' : 'Journeys'}</h3>
+              <div className="flex items-center gap-2 text-xs font-bold text-white/40">
+                <Plane className="w-4 h-4 text-indigo-400/60" />
+                <span>Active Wayfarer</span>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </Tilt3D>
       </motion.div>
 
-      {/* Motivational Travel Quote */}
-      <motion.div variants={itemVariants} className="px-2">
-        <motion.div 
-          whileHover={{ scale: 1.005 }}
-          className={`flex items-center gap-4 py-5 px-8 backdrop-blur-md rounded-3xl border shadow-sm transition-all duration-300 cursor-default ${
-            theme === 'sand' && 'bg-white/50 border-black/[0.03]' ||
-            theme === 'midnight' && 'bg-slate-900/20 border-slate-800/80 shadow-[0_0_15px_rgba(6,182,212,0.01)]' ||
-            theme === 'sunset' && 'bg-purple-950/10 border-purple-900/30'
-          }`}
+      {/* Travel Quote */}
+      <motion.div variants={itemVariants}>
+        <motion.div
+          whileHover={{ scale: 1.008 }}
+          className="flex items-center gap-5 py-5 px-8 bg-white/[0.02] backdrop-blur-md rounded-2xl border border-white/[0.04] cursor-default"
         >
-          <span className={`text-2xl font-serif ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-orange-500'}`}>“</span>
-          <p className={`text-sm italic font-bold ${isDark ? 'text-slate-300' : 'text-black/60'}`}>
+          <span className="text-3xl font-serif text-orange-400/80">"</span>
+          <p className="text-sm italic font-medium text-white/40 leading-relaxed">
             {[
               'The world is a book, and those who do not travel read only one page. — St. Augustine',
               'Travel makes one modest. You see what a tiny place you occupy in the world. — Gustave Flaubert',
@@ -228,90 +206,83 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
 
-      {/* Recent Trips Section */}
+      {/* Recent Trips */}
       <motion.section className="space-y-6" variants={itemVariants}>
         <div className="flex justify-between items-center">
-          <h2 className={`text-2xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-black'}`}>Recent Itineraries</h2>
-          <Link to="/trips" className={`text-sm font-semibold flex items-center gap-1 transition-colors ${isDark ? 'text-slate-400 hover:text-white' : 'text-black/40 hover:text-black'}`}>
+          <h2 className="text-2xl font-bold tracking-tight text-white">Recent Itineraries</h2>
+          <Link to="/trips" className="text-sm font-semibold flex items-center gap-1 text-white/30 hover:text-orange-400 transition-colors">
             View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8" style={{ perspective: 1200 }}>
           {recentLoading ? (
             Array(3).fill(0).map((_, i) => (
-              <Skeleton key={i} className={`h-80 w-full rounded-[40px] ${isDark ? 'bg-slate-800' : 'bg-black/5'}`} />
+              <Skeleton key={i} className="h-80 w-full rounded-[32px] bg-white/[0.03]" />
             ))
           ) : recentTrips?.length ? (
-            recentTrips.map((trip: any) => (
-              <motion.div 
-                key={trip.id} 
-                className={`group relative h-80 rounded-[40px] overflow-hidden border shadow-md hover:shadow-2xl transition-all ${
-                  isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-black/5'
-                }`}
-                variants={itemVariants}
-                whileHover={{ y: -8 }}
+            recentTrips.map((trip: any, idx: number) => (
+              <motion.div
+                key={trip.id}
+                initial={{ opacity: 0, y: 40, rotateX: 8 }}
+                animate={{ opacity: 1, y: 0, rotateX: 0 }}
+                transition={{ delay: idx * 0.15, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
               >
-                <Link to={`/trips/${trip.id}`} className="absolute inset-0 z-10">
-                  <img 
-                    src={trip.coverURL || `https://picsum.photos/seed/${trip.id}/800/1000`} 
-                    alt={trip.title}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent opacity-90 transition-opacity group-hover:opacity-100" />
-                  
-                  <div className="absolute bottom-0 p-8 text-white w-full">
-                    <span className="text-[10px] uppercase tracking-widest font-bold opacity-60 mb-2 block">
-                      {format(trip.startDate.toDate(), 'MMM yyyy')}
-                    </span>
-                    <h3 className="text-2xl font-bold leading-tight group-hover:underline">{trip.title}</h3>
-                    <div className="flex items-center gap-4 mt-4 text-xs opacity-80 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className={`w-3 h-3 ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-orange-400'}`} />
-                        <span>View Itinerary</span>
+                <Tilt3D className="rounded-[32px]" intensity={8} glare>
+                  <div className="group relative h-80 rounded-[32px] overflow-hidden border border-white/[0.06]">
+                    <Link to={`/trips/${trip.id}`} className="absolute inset-0 z-10">
+                      <img
+                        src={trip.coverURL || `https://picsum.photos/seed/${trip.id}/800/1000`}
+                        alt={trip.title}
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                      <div className="absolute bottom-0 p-7 text-white w-full" style={{ transform: 'translateZ(20px)', transformStyle: 'preserve-3d' }}>
+                        <span className="text-[10px] uppercase tracking-widest font-bold text-white/40 mb-2 block">
+                          {format(trip.startDate.toDate(), 'MMM yyyy')}
+                        </span>
+                        <h3 className="text-xl font-bold leading-tight">{trip.title}</h3>
+                        <div className="flex items-center gap-4 mt-3 text-xs text-white/50 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3 text-orange-400" />
+                            <span>View Itinerary</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Globe className="w-3 h-3 text-indigo-400" />
+                            <span className="capitalize">{trip.status}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Globe className={`w-3 h-3 ${theme === 'midnight' ? 'text-cyan-400' : theme === 'sunset' ? 'text-pink-400' : 'text-blue-400'}`} />
-                        <span className="capitalize">{trip.status}</span>
-                      </div>
+                    </Link>
+                    <div className="absolute top-5 right-5 z-20">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full bg-white/5 backdrop-blur-xl text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-all opacity-0 group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setTripToDelete(trip.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                </Link>
-                <div className="absolute top-6 right-6 z-20">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="rounded-full bg-white/10 backdrop-blur-md text-white/40 hover:text-red-400 hover:bg-white/20 transition-all opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setTripToDelete(trip.id);
-                    }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                </Tilt3D>
               </motion.div>
             ))
           ) : (
-            <div className={`col-span-3 rounded-[40px] border-2 border-dashed h-64 flex flex-col items-center justify-center text-center p-8 backdrop-blur-sm ${
-              isDark ? 'border-slate-800 bg-slate-900/20' : 'border-black/10 bg-white/30'
-            }`}>
-              <div className="w-16 h-16 bg-black/5 dark:bg-white/5 rounded-full flex items-center justify-center mb-4">
-                <Plane className={`w-8 h-8 ${isDark ? 'text-slate-600' : 'text-black/30'}`} />
+            <div className="col-span-3 rounded-[32px] border border-dashed border-white/[0.06] h-64 flex flex-col items-center justify-center text-center p-8 bg-white/[0.01] backdrop-blur-sm">
+              <div className="w-16 h-16 bg-white/[0.03] rounded-full flex items-center justify-center mb-4">
+                <Plane className="w-8 h-8 text-white/20" />
               </div>
-              <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-black/85'}`}>Your map is waiting to be filled</h3>
-              <p className={`mt-2 text-sm max-w-sm ${isDark ? 'text-slate-400' : 'text-black/55'}`}>Every great adventure begins with a single step. Let's design your first journey.</p>
+              <h3 className="text-xl font-bold text-white/80">Your map is waiting to be filled</h3>
+              <p className="mt-2 text-sm max-w-sm text-white/30">Every great adventure begins with a single step. Let's design your first journey.</p>
               <Link to="/trips/new" className="mt-6">
-                <Button 
-                  variant="outline" 
-                  className={`rounded-full px-8 h-12 transition-all border ${
-                    theme === 'sand' && 'border-black hover:bg-black hover:text-white' ||
-                    theme === 'midnight' && 'border-cyan-500 text-cyan-400 hover:bg-cyan-500 hover:text-black shadow-cyan-500/10' ||
-                    theme === 'sunset' && 'border-pink-500 text-pink-400 hover:bg-gradient-to-r hover:from-pink-500 hover:to-rose-500 hover:text-white shadow-pink-500/10'
-                  }`}
-                >
+                <Button variant="outline" className="rounded-full px-8 h-12 border-orange-500/30 text-orange-400 hover:bg-orange-500 hover:text-white hover:border-orange-500 transition-all">
                   Start Planning
                 </Button>
               </Link>
@@ -320,47 +291,46 @@ export default function Dashboard() {
         </div>
       </motion.section>
 
-      <DeleteConfirmDialog 
+      <DeleteConfirmDialog
         isOpen={!!tripToDelete}
         onClose={() => setTripToDelete(null)}
         onConfirm={() => tripToDelete && handleDelete(tripToDelete)}
       />
 
       {/* Discovery Section */}
-      <motion.section 
-        whileHover={{ scale: 1.005 }}
-        className={`rounded-[48px] p-12 text-white overflow-hidden relative shadow-lg ${
-          theme === 'sand' && 'bg-gradient-to-r from-orange-500 to-amber-500' ||
-          theme === 'midnight' && 'bg-gradient-to-r from-cyan-950 via-slate-900 to-indigo-950 border border-slate-800/80 shadow-cyan-500/5' ||
-          theme === 'sunset' && 'bg-gradient-to-r from-purple-950 via-[#130E26] to-pink-950 border border-purple-900/40'
-        }`} 
-        variants={itemVariants}
-      >
-        <div className="relative z-10 max-w-xl space-y-6">
-          <span className={`text-xs uppercase tracking-[0.2em] font-black ${isDark ? 'text-cyan-400' : 'text-white/80'}`}>Wanderlust Inspiration</span>
-          <h2 className="text-6xl font-light leading-tight">Santorini is <br /><span className="italic font-normal">calling...</span></h2>
-          <p className={`text-lg leading-relaxed ${isDark ? 'text-slate-300' : 'text-white/90'}`}>Discover sun-drenched stone paths, iconic white houses, and romantic sunsets along the beautiful cliffs of Greece.</p>
-          <Link to="/explore">
-            <Button 
-              size="lg" 
-              className={`rounded-full px-8 h-12 shadow-xl border-none transition-transform hover:scale-105 active:scale-95 font-bold ${
-                theme === 'sand' && 'bg-white text-orange-600 hover:bg-orange-50' ||
-                theme === 'midnight' && 'bg-cyan-500 text-black hover:bg-cyan-400' ||
-                theme === 'sunset' && 'bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:opacity-95 shadow-pink-500/20'
-              }`}
-            >
-              Explore Guide
-            </Button>
-          </Link>
-        </div>
-        <motion.img 
-          whileHover={{ scale: 1.05 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          src="https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=2000&auto=format&fit=crop" 
-          alt="Santorini" 
-          className="absolute top-0 right-0 w-1/2 h-full object-cover rounded-l-[80px] opacity-90 hidden md:block"
-          referrerPolicy="no-referrer"
-        />
+      <motion.section variants={itemVariants}>
+        <Tilt3D className="rounded-[40px]" intensity={5} glare>
+          <div className="rounded-[40px] p-12 overflow-hidden relative bg-gradient-to-br from-orange-600/20 via-[#12151E] to-indigo-900/15 border border-white/[0.06]">
+            <div className="relative z-10 max-w-xl space-y-6" style={{ transform: 'translateZ(40px)', transformStyle: 'preserve-3d' }}>
+              <span className="text-xs uppercase tracking-[0.2em] font-black text-orange-400/70">Wanderlust Inspiration</span>
+              <h2 className="text-5xl md:text-6xl font-light leading-tight text-white">Santorini is <br /><span className="italic font-normal text-white/90">calling...</span></h2>
+              <p className="text-base leading-relaxed text-white/40 max-w-md">Discover sun-drenched stone paths, iconic white houses, and romantic sunsets along the beautiful cliffs of Greece.</p>
+              <Link to="/explore">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="inline-block">
+                  <Button
+                    size="lg"
+                    className="rounded-full px-8 h-12 shadow-xl border-none bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold hover:shadow-orange-500/20 hover:shadow-2xl transition-shadow"
+                  >
+                    Explore Guide
+                  </Button>
+                </motion.div>
+              </Link>
+            </div>
+            {/* Background image */}
+            <motion.img
+              initial={{ scale: 1.1, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.5 }}
+              transition={{ duration: 1.5, ease: 'easeOut' }}
+              whileHover={{ scale: 1.05 }}
+              src="https://images.unsplash.com/photo-1570077188670-e3a8d69ac5ff?q=80&w=2000&auto=format&fit=crop"
+              alt="Santorini"
+              className="absolute top-0 right-0 w-1/2 h-full object-cover rounded-l-[80px] hidden md:block"
+              referrerPolicy="no-referrer"
+            />
+            {/* Decorative blur orb */}
+            <div className="absolute bottom-0 left-0 w-60 h-60 bg-orange-500/5 rounded-full blur-3xl" />
+          </div>
+        </Tilt3D>
       </motion.section>
     </motion.div>
   );
